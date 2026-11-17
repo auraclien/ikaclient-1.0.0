@@ -14,12 +14,13 @@ public class ClickGUI extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        this.renderBackground(context, mouseX, mouseY, delta);
+        // Вместо renderBackground просто заливаем весь экран черным с прозрачностью
+        context.fill(0, 0, this.width, this.height, 0x80000000);
         
         int startX = 50;
         int startY = 50;
 
-        context.drawText(textRenderer, "§l§bIka Client", startX, startY - 20, 0xFFFFFF, true);
+        context.drawText(textRenderer, "§l§bIka Client", startX, startY - 20, 0xFFFFFFFF, true);
 
         int yOffset = startY;
         for (Module module : ModuleManager.modules) {
@@ -27,7 +28,7 @@ public class ClickGUI extends Screen {
             context.fill(startX, yOffset, startX + 120, yOffset + 15, bgColor);
             
             String text = module.name + (module.enabled ? " [ON]" : " [OFF]");
-            context.drawText(textRenderer, text, startX + 5, yOffset + 4, 0xFFFFFF, true);
+            context.drawText(textRenderer, text, startX + 5, yOffset + 4, 0xFFFFFFFF, true);
 
             yOffset += 20;
         }
@@ -35,7 +36,6 @@ public class ClickGUI extends Screen {
         super.render(context, mouseX, mouseY, delta);
     }
 
-    // ИСПРАВЛЕНИЕ: Метод теперь принимает Click и boolean
     @Override
     public boolean mouseClicked(Click click, boolean doubled) {
         double mouseX = click.x();
