@@ -12,11 +12,10 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class KillAura {
 
-    // Настройки под SpookyTime
     private static final double RANGE = 2.85;
     private static final double RANGE_SQUARED = RANGE * RANGE;
-    private static final float FOV = 120.0f; // Угол обзора (не 360)
-    private static final float MAX_ROTATION = 25.0f; // Ускоренный поворот
+    private static final float FOV = 120.0f;
+    private static final float MAX_ROTATION = 25.0f;
     private static final int CPS_MIN = 6;
     private static final int CPS_MAX = 8;
     
@@ -65,7 +64,7 @@ public class KillAura {
         long now = System.currentTimeMillis();
         if (nextDelay == 0L) {
             int cps = ThreadLocalRandom.current().nextInt(CPS_MIN, CPS_MAX + 1);
-            nextDelay = 1000L / cps + ThreadLocalRandom.current().nextLong(-5L, 6L); // джиттер
+            nextDelay = 1000L / cps + ThreadLocalRandom.current().nextLong(-5L, 6L);
         }
 
         if (now - lastAttack < nextDelay) return;
@@ -78,12 +77,14 @@ public class KillAura {
     }
 
     private PlayerEntity findTarget(MinecraftClient mc) {
+        // Исправлено: используем List<PlayerEntity> и кастуем элементы
         List<PlayerEntity> candidates = mc.world.getPlayers().stream()
                 .filter(e -> e != mc.player && e.isAlive() && !e.isRemoved())
                 .filter(e -> !e.isCreative() && !e.isSpectator())
                 .filter(e -> mc.player.squaredDistanceTo(e) <= RANGE_SQUARED)
                 .filter(mc.player::canSee)
                 .filter(e -> isInFov(mc, e))
+                .map(e -> (PlayerEntity) e) // Явное приведение типа
                 .sorted(Comparator.comparingDouble(mc.player::squaredDistanceTo))
                 .toList();
 
