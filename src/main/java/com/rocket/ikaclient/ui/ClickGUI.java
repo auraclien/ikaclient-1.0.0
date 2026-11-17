@@ -2,11 +2,10 @@ package com.rocket.ikaclient.ui;
 
 import com.rocket.ikaclient.modules.Module;
 import com.rocket.ikaclient.modules.ModuleManager;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.client.gui.Click;
 
 public class ClickGUI extends Screen {
     public ClickGUI() {
@@ -15,22 +14,18 @@ public class ClickGUI extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        // Темный фон
         this.renderBackground(context, mouseX, mouseY, delta);
         
         int startX = 50;
         int startY = 50;
 
-        // Рисуем заголовок
         context.drawText(textRenderer, "§l§bIka Client", startX, startY - 20, 0xFFFFFF, true);
 
         int yOffset = startY;
         for (Module module : ModuleManager.modules) {
-            // Красивая плашка под модуль
-            int bgColor = module.enabled ? 0x8000FF00 : 0x80000000; // Зеленый если вкл, черный если выкл
+            int bgColor = module.enabled ? 0x8000FF00 : 0x80000000;
             context.fill(startX, yOffset, startX + 120, yOffset + 15, bgColor);
             
-            // Текст модуля
             String text = module.name + (module.enabled ? " [ON]" : " [OFF]");
             context.drawText(textRenderer, text, startX + 5, yOffset + 4, 0xFFFFFF, true);
 
@@ -40,8 +35,12 @@ public class ClickGUI extends Screen {
         super.render(context, mouseX, mouseY, delta);
     }
 
+    // ИСПРАВЛЕНИЕ: Метод теперь принимает Click и boolean
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(Click click, boolean doubled) {
+        double mouseX = click.x();
+        double mouseY = click.y();
+        
         int startX = 50;
         int startY = 50;
         int yOffset = startY;
@@ -53,11 +52,11 @@ public class ClickGUI extends Screen {
             }
             yOffset += 20;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(click, doubled);
     }
 
     @Override
     public boolean shouldPause() {
-        return false; // Игра не останавливается, когда открыто меню
+        return false;
     }
 }
