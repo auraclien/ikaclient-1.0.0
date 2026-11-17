@@ -1,0 +1,20 @@
+
+{
+  "schemaVersion": 1,
+  "id": "ikaclient",
+  "version": "${version}",
+  "name": "IkaClient",
+  "description": "Client-side Minecraft utility mod",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.rocket.ikaclient.MainClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.18.0",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
