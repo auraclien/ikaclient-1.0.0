@@ -1,6 +1,5 @@
 package com.rocket.ikaclient;
 
-import com.rocket.ikaclient.modules.Module;
 import com.rocket.ikaclient.modules.ModuleManager;
 import com.rocket.ikaclient.ui.ClickGUI;
 import net.fabricmc.api.ClientModInitializer;
@@ -28,14 +27,16 @@ public class MainClient implements ClientModInitializer {
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-    // Открытие меню
-    while (menuKey.wasPressed()) {
-        if (client.currentScreen == null) {
-            client.setScreen(new ClickGUI());
-        }
-    }
+            // Открытие меню
+            while (menuKey.wasPressed()) {
+                if (client.currentScreen == null) {
+                    client.setScreen(new ClickGUI());
+                }
+            }
 
-    if (client.player != null && client.world != null) {
-        ModuleManager.onTick(); // Запускает все модули
+            if (client.player != null && client.world != null) {
+                ModuleManager.onTick();
+            }
+        });
     }
-});
+}
