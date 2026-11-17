@@ -10,12 +10,12 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class KillAura extends Module {
-    private static final double RANGE = 2.85;
+    private static final double RANGE = 3.0; // Ровно 3 блока
     private static final double RANGE_SQUARED = RANGE * RANGE;
-    private static final float FOV = 120.0f;
-    private static final float MAX_ROTATION = 25.0f;
-    private static final int CPS_MIN = 6;
-    private static final int CPS_MAX = 8;
+    private static final float FOV = 360.0f; // 360 = бьет вокруг себя
+    private static final float MAX_ROTATION = 180.0f; // Мгновенный поворот
+    private static final int CPS_MIN = 8; // Чуть ускорил удары
+    private static final int CPS_MAX = 12;
 
     private PlayerEntity target = null;
     private long lastAttack = 0L;
@@ -40,9 +40,14 @@ public class KillAura extends Module {
             target = null;
             return;
         }
+        
         target = findTarget();
         if (target == null) { nextDelay = 0L; return; }
+        
+        // Поворачиваем камеру точно на цель
         rotateToTarget(target);
+        
+        // Бьем только критами
         if (!isCritReady()) return;
 
         long now = System.currentTimeMillis();
@@ -59,33 +64,21 @@ public class KillAura extends Module {
     }
 
     private PlayerEntity findTarget() {
+        // Убрал FOV фильтр, чтобы била всех в радиусе 3 блоков
         List<PlayerEntity> candidates = mc.world.getPlayers().stream()
                 .filter(e -> e != mc.player && e.isAlive() && !e.isRemoved() && !e.isCreative() && !e.isSpectator())
                 .filter(e -> mc.player.squaredDistanceTo(e) <= RANGE_SQUARED)
-                .filter(mc.player::canSee).filter(this::isInFov)
+                .filter(mc.player::canSee)
                 .map(e -> (PlayerEntity) e)
                 .sorted(Comparator.comparingDouble(mc.player::squaredDistanceTo))
                 .toList();
         return candidates.isEmpty() ? null : candidates.get(0);
     }
 
-    private boolean isInFov(PlayerEntity entity) {
+    private void rotateToTarget(PlayerEntity entity) {
+        // Берем текущую позицию, без всяких предугадываний
         Vec3d eyes = mc.player.getEyePos();
         Vec3d targetEyes = entity.getEyePos();
-        Vec3d direction = targetEyes.subtract(eyes);
-        float targetYaw = (float) (Math.toDegrees(Math.atan2(direction.z, direction.x)) - 90.0);
-        float yawDifference = MathHelper.wrapDegrees(targetYaw - mc.player.getYaw());
-        return Math.abs(yawDifference) <= FOV / 2.0f;
-    }
-
-    private void rotateToTarget(PlayerEntity entity) {
-        // ИСПРАВЛЕНИЕ: используем getX(), getY(), getZ() вместо getPos()
-        Vec3d velocity = new Vec3d(entity.getVelocity().x, 0, entity.getVelocity().z);
-        Vec3d currentPos = new Vec3d(entity.getX(), entity.getY(), entity.getZ());
-        Vec3d predictedPos = currentPos.add(velocity.multiply(2.0)); // Предугадываем на 2 тика вперед
-        
-        Vec3d eyes = mc.player.getEyePos();
-        Vec3d targetEyes = predictedPos.add(0, entity.getStandingEyeHeight(), 0);
         Vec3d direction = targetEyes.subtract(eyes);
 
         double horizontal = Math.sqrt(direction.x * direction.x + direction.z * direction.z);
@@ -95,7 +88,8 @@ public class KillAura extends Module {
         float yawDifference = MathHelper.wrapDegrees(targetYaw - mc.player.getYaw());
         float pitchDifference = MathHelper.wrapDegrees(targetPitch - mc.player.getPitch());
 
-        mc.player.setYaw(mc.player.getYaw() + MathHelper.clamp(yawDifference, -MAX_ROTATION, MAX_ROTATION));
-        mc.player.setPitch(MathHelper.clamp(mc.player.getPitch() + MathHelper.clamp(pitchDifference, -MAX_ROTATION, MAX_ROTATION), -90.0f, 90.0f));
+        // Плавный, но быстрый доворот (30 градусов за тик), чтобы не дергалось
+        mc.player.setYaw(mc.player.getYaw() + MathHelper.clamp(yawDifference, -30.0f, 30.0f));
+        mc.player.setPitch(MathHelper.clamp(mc.player.getPitch() + MathHelper.clamp(pitchDifference, -30.0f, 30.0f), -90.0f, 90.0f));
     }
 }
