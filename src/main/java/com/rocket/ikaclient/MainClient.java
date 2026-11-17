@@ -9,6 +9,7 @@ import org.lwjgl.glfw.GLFW;
 
 public class MainClient implements ClientModInitializer {
 
+    public static final String MOD_ID = "ikaclient";
     public static KillAura aura;
     private static KeyBinding toggleKey;
 
@@ -16,11 +17,14 @@ public class MainClient implements ClientModInitializer {
     public void onInitializeClient() {
         aura = new KillAura();
 
+        // В 1.21.11 категория передается как объект через Identifier
+        KeyBinding.Category category = KeyBinding.Category.create(net.minecraft.util.Identifier.of(MOD_ID, "main"));
+
         toggleKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.ikaclient.toggle_aura",
                 InputUtil.Type.KEYSYM,
                 GLFW.GLFW_KEY_R,
-                "category.ikaclient" // Здесь строка, а не MISC
+                category
         ));
 
         HudRenderer.register();
