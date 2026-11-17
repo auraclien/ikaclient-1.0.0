@@ -1,5 +1,8 @@
 package com.rocket.ikaclient;
 
+import com.rocket.ikaclient.modules.Module;
+import com.rocket.ikaclient.modules.ModuleManager;
+import com.rocket.ikaclient.ui.ClickGUI;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -8,33 +11,35 @@ import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
 
 public class MainClient implements ClientModInitializer {
-
     public static final String MOD_ID = "ikaclient";
-    public static KillAura aura;
-    private static KeyBinding toggleKey;
+    private static KeyBinding menuKey;
 
     @Override
     public void onInitializeClient() {
-        aura = new KillAura();
-
-        // В 1.21.11 категория передается как объект через Identifier
-        KeyBinding.Category category = KeyBinding.Category.create(net.minecraft.util.Identifier.of(MOD_ID, "main"));
-
-        toggleKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.ikaclient.toggle_aura",
-                InputUtil.Type.KEYSYM,
-                GLFW.GLFW_KEY_R,
-                category
-        ));
-
+        ModuleManager.init();
         HudRenderer.register();
 
+        // Привязка меню на Right Shift
+        menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.ikaclient.menu",
+                InputUtil.Type.KEYSYM,
+                GLFW.GLFW_KEY_RIGHT_SHIFT,
+                KeyBinding.Category.create(net.minecraft.util.Identifier.of(MOD_ID, "main"))
+        ));
+
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            while (toggleKey.wasPressed()) {
-                aura.toggle();
+            // Открытие меню
+            while (menuKey.wasPressed()) {
+                if (client.currentScreen == null) {
+                    client.setScreen(new ClickGUI());
+                }
             }
+
             if (client.player != null && client.world != null) {
-                aura.tick(client);
+                // Тикаем все модули
+                for (Module m : ModuleManager.modules) {
+                    m.onTick();
+                }
             }
         });
     }
