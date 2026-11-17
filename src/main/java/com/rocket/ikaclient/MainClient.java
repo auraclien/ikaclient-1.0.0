@@ -28,19 +28,14 @@ public class MainClient implements ClientModInitializer {
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            // Открытие меню
-            while (menuKey.wasPressed()) {
-                if (client.currentScreen == null) {
-                    client.setScreen(new ClickGUI());
-                }
-            }
-
-            if (client.player != null && client.world != null) {
-                // Тикаем все модули
-                for (Module m : ModuleManager.modules) {
-                    m.onTick();
-                }
-            }
-        });
+    // Открытие меню
+    while (menuKey.wasPressed()) {
+        if (client.currentScreen == null) {
+            client.setScreen(new ClickGUI());
+        }
     }
-}
+
+    if (client.player != null && client.world != null) {
+        ModuleManager.onTick(); // Запускает все модули
+    }
+});
