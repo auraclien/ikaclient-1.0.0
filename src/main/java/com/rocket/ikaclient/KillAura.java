@@ -1,4 +1,3 @@
-
 package com.rocket.ikaclient;
 
 import net.minecraft.client.MinecraftClient;
@@ -7,36 +6,35 @@ import net.minecraft.util.Hand;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 
-public final class KillAura {
+import java.util.Comparator;
+import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
+public class KillAura {
+
+    // Настройки под SpookyTime
     private static final double RANGE = 2.85;
     private static final double RANGE_SQUARED = RANGE * RANGE;
-
-    private static final float MAX_ROTATION = 8.0f;
-
+    private static final float FOV = 120.0f; // Угол обзора (не 360)
+    private static final float MAX_ROTATION = 25.0f; // Ускоренный поворот
+    private static final int CPS_MIN = 6;
+    private static final int CPS_MAX = 8;
+    
     private boolean enabled = false;
-
     private PlayerEntity target = null;
+    private long lastAttack = 0L;
+    private long nextDelay = 0L;
 
     public void toggle() {
         enabled = !enabled;
         target = null;
     }
 
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public PlayerEntity getTarget() {
-        return target;
-    }
+    public boolean isEnabled() { return enabled; }
+    public PlayerEntity getTarget() { return target; }
 
     public boolean isCritReady(MinecraftClient mc) {
-
-        if (mc.player == null) {
-            return false;
-        }
-
+        if (mc.player == null) return false;
         PlayerEntity player = mc.player;
 
         return !player.isOnGround()
@@ -49,132 +47,73 @@ public final class KillAura {
     }
 
     public void tick(MinecraftClient mc) {
-
-        if (!enabled
-                || mc.player == null
-                || mc.world == null
-                || mc.interactionManager == null) {
-
+        if (!enabled || mc.player == null || mc.world == null || mc.interactionManager == null) {
             target = null;
             return;
         }
 
         target = findTarget(mc);
-
         if (target == null) {
+            nextDelay = 0L;
             return;
         }
 
         rotateToTarget(mc, target);
 
-        if (!isCritReady(mc)) {
-            return;
+        if (!isCritReady(mc)) return;
+
+        long now = System.currentTimeMillis();
+        if (nextDelay == 0L) {
+            int cps = ThreadLocalRandom.current().nextInt(CPS_MIN, CPS_MAX + 1);
+            nextDelay = 1000L / cps + ThreadLocalRandom.current().nextLong(-5L, 6L); // джиттер
         }
 
-        mc.interactionManager.attackEntity(
-                mc.player,
-                target
-        );
+        if (now - lastAttack < nextDelay) return;
 
+        mc.interactionManager.attackEntity(mc.player, target);
         mc.player.swingHand(Hand.MAIN_HAND);
+        
+        lastAttack = now;
+        nextDelay = 0L;
     }
 
     private PlayerEntity findTarget(MinecraftClient mc) {
+        List<PlayerEntity> candidates = mc.world.getPlayers().stream()
+                .filter(e -> e != mc.player && e.isAlive() && !e.isRemoved())
+                .filter(e -> !e.isCreative() && !e.isSpectator())
+                .filter(e -> mc.player.squaredDistanceTo(e) <= RANGE_SQUARED)
+                .filter(mc.player::canSee)
+                .filter(e -> isInFov(mc, e))
+                .sorted(Comparator.comparingDouble(mc.player::squaredDistanceTo))
+                .toList();
 
-        PlayerEntity bestTarget = null;
-
-        double bestDistance = RANGE_SQUARED;
-
-        for (PlayerEntity entity : mc.world.getPlayers()) {
-
-            if (entity == mc.player) {
-                continue;
-            }
-
-            if (!entity.isAlive() || entity.isRemoved()) {
-                continue;
-            }
-
-            if (entity.isCreative() || entity.isSpectator()) {
-                continue;
-            }
-
-            double distance =
-                    mc.player.squaredDistanceTo(entity);
-
-            if (distance > bestDistance) {
-                continue;
-            }
-
-            if (!mc.player.canSee(entity)) {
-                continue;
-            }
-
-            bestDistance = distance;
-            bestTarget = entity;
-        }
-
-        return bestTarget;
+        return candidates.isEmpty() ? null : candidates.get(0);
     }
 
-    private void rotateToTarget(
-            MinecraftClient mc,
-            PlayerEntity entity
-    ) {
-
+    private boolean isInFov(MinecraftClient mc, PlayerEntity entity) {
         Vec3d eyes = mc.player.getEyePos();
-
         Vec3d targetEyes = entity.getEyePos();
+        Vec3d direction = targetEyes.subtract(eyes);
+        
+        float targetYaw = (float) (Math.toDegrees(Math.atan2(direction.z, direction.x)) - 90.0);
+        float yawDifference = MathHelper.wrapDegrees(targetYaw - mc.player.getYaw());
+        
+        return Math.abs(yawDifference) <= FOV / 2.0f;
+    }
 
+    private void rotateToTarget(MinecraftClient mc, PlayerEntity entity) {
+        Vec3d eyes = mc.player.getEyePos();
+        Vec3d targetEyes = entity.getEyePos();
         Vec3d direction = targetEyes.subtract(eyes);
 
-        double horizontal = Math.sqrt(
-                direction.x * direction.x
-                + direction.z * direction.z
-        );
+        double horizontal = Math.sqrt(direction.x * direction.x + direction.z * direction.z);
+        float targetYaw = (float) (Math.toDegrees(Math.atan2(direction.z, direction.x)) - 90.0);
+        float targetPitch = (float) (-Math.toDegrees(Math.atan2(direction.y, horizontal)));
 
-        float targetYaw = (float) (
-                Math.toDegrees(
-                        Math.atan2(direction.z, direction.x)
-                ) - 90.0
-        );
+        float yawDifference = MathHelper.wrapDegrees(targetYaw - mc.player.getYaw());
+        float pitchDifference = MathHelper.wrapDegrees(targetPitch - mc.player.getPitch());
 
-        float targetPitch = (float) (
-                -Math.toDegrees(
-                        Math.atan2(direction.y, horizontal)
-                )
-        );
-
-        float yawDifference = MathHelper.wrapDegrees(
-                targetYaw - mc.player.getYaw()
-        );
-
-        float pitchDifference = MathHelper.wrapDegrees(
-                targetPitch - mc.player.getPitch()
-        );
-
-        float yawStep = MathHelper.clamp(
-                yawDifference,
-                -MAX_ROTATION,
-                MAX_ROTATION
-        );
-
-        float pitchStep = MathHelper.clamp(
-                pitchDifference,
-                -MAX_ROTATION,
-                MAX_ROTATION
-        );
-
-        mc.player.setYaw(
-                mc.player.getYaw() + yawStep
-        );
-
-        mc.player.setPitch(
-                MathHelper.clamp(
-                        mc.player.getPitch() + pitchStep,
-                        -90.0f,
-                        90.0f
-                )
-        );
+        mc.player.setYaw(mc.player.getYaw() + MathHelper.clamp(yawDifference, -MAX_ROTATION, MAX_ROTATION));
+        mc.player.setPitch(MathHelper.clamp(mc.player.getPitch() + MathHelper.clamp(pitchDifference, -MAX_ROTATION, MAX_ROTATION), -90.0f, 90.0f));
     }
 }
