@@ -79,9 +79,10 @@ public class KillAura extends Module {
     }
 
     private void rotateToTarget(PlayerEntity entity) {
-        // Предикция: целимся туда, куда враг движется
+        // ИСПРАВЛЕНИЕ: используем getX(), getY(), getZ() вместо getPos()
         Vec3d velocity = new Vec3d(entity.getVelocity().x, 0, entity.getVelocity().z);
-        Vec3d predictedPos = entity.getPos().add(velocity.multiply(2.0)); // Предугадываем на 2 тика вперед
+        Vec3d currentPos = new Vec3d(entity.getX(), entity.getY(), entity.getZ());
+        Vec3d predictedPos = currentPos.add(velocity.multiply(2.0)); // Предугадываем на 2 тика вперед
         
         Vec3d eyes = mc.player.getEyePos();
         Vec3d targetEyes = predictedPos.add(0, entity.getStandingEyeHeight(), 0);
