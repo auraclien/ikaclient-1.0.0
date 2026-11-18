@@ -1,21 +1,27 @@
 package com.rocket.ikaclient.modules;
 
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import org.lwjgl.glfw.GLFW;
+
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class KillAura extends Module {
+
     private static final double RANGE = 3.0;
     private static final double RANGE_SQUARED = RANGE * RANGE;
     private static final int CPS_MIN = 8;
     private static final int CPS_MAX = 12;
 
     private PlayerEntity target = null;
+    private float targetYaw = 0.0f;
+    private float targetPitch = 0.0f;
+    
     private long lastAttack = 0L;
     private long nextDelay = 0L;
 
@@ -27,7 +33,6 @@ public class KillAura extends Module {
 
     public boolean isCritReady() {
         if (mc.player == null) return false;
-        // Ослабили кулдаун до 0.8f, чтобы удары не пролетали мимо при спринте
         return !mc.player.isOnGround() && !mc.player.isTouchingWater() && !mc.player.isClimbing()
                 && !mc.player.hasVehicle() && !mc.player.isGliding() && mc.player.fallDistance > 0.0f
                 && mc.player.getAttackCooldownProgress(0.0f) > 0.8f;
@@ -35,18 +40,29 @@ public class KillAura extends Module {
 
     @Override
     public void onTick() {
+        target = null;
         if (!enabled || mc.player == null || mc.world == null || mc.interactionManager == null) {
-            target = null;
+            nextDelay = 0L;
             return;
         }
         
+        // 1. Ищем цель (наработка от ChatGPT)
         target = findTarget();
         if (target == null) { nextDelay = 0L; return; }
         
-        rotateToTarget(target);
+        // 2. Считаем углы (наработка от ChatGPT)
+        calculateAngles(target);
+
+        // 3. Красиво вертим моделькой в 3-м лице (моя наработка)
+        if (mc.options.getPerspective() != net.minecraft.client.option.Perspective.FIRST_PERSON) {
+            mc.player.setYaw(targetYaw);
+            mc.player.setPitch(targetPitch);
+        }
         
+        // 4. Проверяем крит
         if (!isCritReady()) return;
 
+        // 5. Тайминги (CPS)
         long now = System.currentTimeMillis();
         if (nextDelay == 0L) {
             int cps = ThreadLocalRandom.current().nextInt(CPS_MIN, CPS_MAX + 1);
@@ -54,8 +70,13 @@ public class KillAura extends Module {
         }
         if (now - lastAttack < nextDelay) return;
 
+        // 6. Отправляем "тихий" пакет поворота (Чтобы сервер пропустил удар)
+        mc.player.networkHandler.sendPacket(new PlayerMoveC2SPacket.LookAndOnGround(targetYaw, targetPitch, mc.player.isOnGround()));
+        
+        // 7. Наносим удар
         mc.interactionManager.attackEntity(mc.player, target);
         mc.player.swingHand(Hand.MAIN_HAND);
+        
         lastAttack = now;
         nextDelay = 0L;
     }
@@ -71,19 +92,17 @@ public class KillAura extends Module {
         return candidates.isEmpty() ? null : candidates.get(0);
     }
 
-    private void rotateToTarget(PlayerEntity entity) {
-        Vec3d eyes = mc.player.getEyePos();
+    private void calculateAngles(PlayerEntity entity) {
+        Vec3d playerEyes = mc.player.getEyePos();
         Vec3d targetEyes = entity.getEyePos();
-        Vec3d direction = targetEyes.subtract(eyes);
+        Vec3d direction = targetEyes.subtract(playerEyes);
 
         double horizontal = Math.sqrt(direction.x * direction.x + direction.z * direction.z);
-        float targetYaw = (float) (Math.toDegrees(Math.atan2(direction.z, direction.x)) - 90.0);
-        float targetPitch = (float) (-Math.toDegrees(Math.atan2(direction.y, horizontal)));
 
-        float yawDifference = MathHelper.wrapDegrees(targetYaw - mc.player.getYaw());
-        float pitchDifference = MathHelper.wrapDegrees(targetPitch - mc.player.getPitch());
+        float calculatedYaw = (float) (Math.toDegrees(Math.atan2(direction.z, direction.x)) - 90.0);
+        float calculatedPitch = (float) (-Math.toDegrees(Math.atan2(direction.y, horizontal)));
 
-        mc.player.setYaw(mc.player.getYaw() + MathHelper.clamp(yawDifference, -30.0f, 30.0f));
-        mc.player.setPitch(MathHelper.clamp(mc.player.getPitch() + MathHelper.clamp(pitchDifference, -30.0f, 30.0f), -90.0f, 90.0f));
+        targetYaw = MathHelper.wrapDegrees(calculatedYaw);
+        targetPitch = MathHelper.clamp(MathHelper.wrapDegrees(calculatedPitch), -90.0f, 90.0f);
     }
 }
