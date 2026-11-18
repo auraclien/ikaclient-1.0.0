@@ -10,11 +10,9 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class KillAura extends Module {
-    private static final double RANGE = 3.0; // Ровно 3 блока
+    private static final double RANGE = 3.0;
     private static final double RANGE_SQUARED = RANGE * RANGE;
-    private static final float FOV = 360.0f; // 360 = бьет вокруг себя
-    private static final float MAX_ROTATION = 180.0f; // Мгновенный поворот
-    private static final int CPS_MIN = 8; // Чуть ускорил удары
+    private static final int CPS_MIN = 8;
     private static final int CPS_MAX = 12;
 
     private PlayerEntity target = null;
@@ -29,9 +27,10 @@ public class KillAura extends Module {
 
     public boolean isCritReady() {
         if (mc.player == null) return false;
+        // Ослабили кулдаун до 0.8f, чтобы удары не пролетали мимо при спринте
         return !mc.player.isOnGround() && !mc.player.isTouchingWater() && !mc.player.isClimbing()
                 && !mc.player.hasVehicle() && !mc.player.isGliding() && mc.player.fallDistance > 0.0f
-                && mc.player.getAttackCooldownProgress(0.0f) > 0.9f;
+                && mc.player.getAttackCooldownProgress(0.0f) > 0.8f;
     }
 
     @Override
@@ -44,10 +43,8 @@ public class KillAura extends Module {
         target = findTarget();
         if (target == null) { nextDelay = 0L; return; }
         
-        // Поворачиваем камеру точно на цель
         rotateToTarget(target);
         
-        // Бьем только критами
         if (!isCritReady()) return;
 
         long now = System.currentTimeMillis();
@@ -64,7 +61,6 @@ public class KillAura extends Module {
     }
 
     private PlayerEntity findTarget() {
-        // Убрал FOV фильтр, чтобы била всех в радиусе 3 блоков
         List<PlayerEntity> candidates = mc.world.getPlayers().stream()
                 .filter(e -> e != mc.player && e.isAlive() && !e.isRemoved() && !e.isCreative() && !e.isSpectator())
                 .filter(e -> mc.player.squaredDistanceTo(e) <= RANGE_SQUARED)
@@ -76,7 +72,6 @@ public class KillAura extends Module {
     }
 
     private void rotateToTarget(PlayerEntity entity) {
-        // Берем текущую позицию, без всяких предугадываний
         Vec3d eyes = mc.player.getEyePos();
         Vec3d targetEyes = entity.getEyePos();
         Vec3d direction = targetEyes.subtract(eyes);
@@ -88,7 +83,6 @@ public class KillAura extends Module {
         float yawDifference = MathHelper.wrapDegrees(targetYaw - mc.player.getYaw());
         float pitchDifference = MathHelper.wrapDegrees(targetPitch - mc.player.getPitch());
 
-        // Плавный, но быстрый доворот (30 градусов за тик), чтобы не дергалось
         mc.player.setYaw(mc.player.getYaw() + MathHelper.clamp(yawDifference, -30.0f, 30.0f));
         mc.player.setPitch(MathHelper.clamp(mc.player.getPitch() + MathHelper.clamp(pitchDifference, -30.0f, 30.0f), -90.0f, 90.0f));
     }
