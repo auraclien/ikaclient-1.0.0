@@ -46,23 +46,18 @@ public class KillAura extends Module {
             return;
         }
         
-        // 1. Ищем цель (наработка от ChatGPT)
         target = findTarget();
         if (target == null) { nextDelay = 0L; return; }
         
-        // 2. Считаем углы (наработка от ChatGPT)
         calculateAngles(target);
 
-        // 3. Красиво вертим моделькой в 3-м лице (моя наработка)
         if (mc.options.getPerspective() != net.minecraft.client.option.Perspective.FIRST_PERSON) {
             mc.player.setYaw(targetYaw);
             mc.player.setPitch(targetPitch);
         }
         
-        // 4. Проверяем крит
         if (!isCritReady()) return;
 
-        // 5. Тайминги (CPS)
         long now = System.currentTimeMillis();
         if (nextDelay == 0L) {
             int cps = ThreadLocalRandom.current().nextInt(CPS_MIN, CPS_MAX + 1);
@@ -70,10 +65,9 @@ public class KillAura extends Module {
         }
         if (now - lastAttack < nextDelay) return;
 
-        // 6. Отправляем "тихий" пакет поворота (Чтобы сервер пропустил удар)
-        mc.player.networkHandler.sendPacket(new PlayerMoveC2SPacket.LookAndOnGround(targetYaw, targetPitch, mc.player.isOnGround()));
+        // ИСПРАВЛЕНИЕ: Добавили 4-й параметр (false) для горизонтальной коллизии
+        mc.player.networkHandler.sendPacket(new PlayerMoveC2SPacket.LookAndOnGround(targetYaw, targetPitch, mc.player.isOnGround(), false));
         
-        // 7. Наносим удар
         mc.interactionManager.attackEntity(mc.player, target);
         mc.player.swingHand(Hand.MAIN_HAND);
         
