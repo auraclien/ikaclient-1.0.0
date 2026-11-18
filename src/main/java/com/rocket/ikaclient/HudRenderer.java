@@ -10,8 +10,8 @@ import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.util.Identifier;
 
 public class HudRenderer {
-    private static final int BG_COLOR = 0x90000000; // Темный полупрозрачный
-    private static final int ACCENT_COLOR = 0xFF00AAFF; // Голубой
+    private static final int BG_COLOR = 0x90000000;
+    private static final int ACCENT_COLOR = 0xFF00AAFF;
 
     public static void register() {
         HudElementRegistry.addLast(
@@ -28,36 +28,30 @@ public class HudRenderer {
         int y = 6;
         int width = 140;
         
-        // Считаем высоту панели
         int activeModules = 0;
         for (Module m : ModuleManager.modules) {
             if (m.enabled) activeModules++;
         }
         int height = 20 + (activeModules * 12);
+        if (height < 35) height = 35; // Минимальная высота
 
-        // Фон
         context.fill(x, y, x + width, y + height, BG_COLOR);
-        context.fill(x, y, x + 3, y + height, ACCENT_COLOR); // Полоска слева
+        context.fill(x, y, x + 3, y + height, ACCENT_COLOR);
 
-        // Заголовок
         context.drawText(mc.textRenderer, "§lIKA", x + 8, y + 5, ACCENT_COLOR, true);
         context.drawText(mc.textRenderer, "§7CLIENT", x + 32, y + 5, 0xFFAAAAAA, true);
         
-        // Разделитель
         context.fill(x + 5, y + 16, x + width - 5, y + 17, 0x40FFFFFF);
 
-        // Список модулей
         int modY = y + 20;
         for (Module module : ModuleManager.modules) {
             if (module.enabled) {
-                // Красивая полоска слева от модуля
                 context.fill(x + 5, modY, x + 7, modY + 8, 0xFFFFFFFF);
                 context.drawText(mc.textRenderer, module.name, x + 12, modY, 0xFFFFFFFF, true);
                 modY += 12;
             }
         }
 
-        // Индикатор крита для KillAura
         KillAura aura = (KillAura) ModuleManager.getModule("KillAura");
         if (aura != null && aura.enabled) {
             boolean crit = aura.isCritReady();
