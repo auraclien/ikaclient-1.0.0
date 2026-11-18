@@ -1,39 +1,25 @@
 package com.rocket.ikaclient.modules;
 
-import java.util.ArrayList;
-import java.util.List;
+import net.minecraft.client.MinecraftClient;
 
-public class ModuleManager {
-    public static final List<Module> modules = new ArrayList<>();
+public abstract class Module {
+    public String name;
+    public boolean enabled;
+    public int key;
+    protected final MinecraftClient mc = MinecraftClient.getInstance();
 
-    public static void init() {
-        modules.clear();
-        
-        // Combat
-        modules.add(new KillAura());
-        
-        // Movement
-        modules.add(new FullBridge());
-        modules.add(new AutoSprint());
-        
-        // Render
-        modules.add(new ESP());
+    public Module(String name, int key) {
+        this.name = name;
+        this.key = key;
+        this.enabled = false;
     }
 
-    // Вызывается из MainClient каждый тик
-    public static void onTick() {
-        for (Module module : modules) {
-            module.onTick();
-        }
+    public void toggle() {
+        this.enabled = !this.enabled;
+        if (this.enabled) onEnable(); else onDisable();
     }
 
-    // ЭТОТ МЕТОД МЫ ДОБАВИЛИ, ЧТОБЫ HUD МОГ НАЙТИ КИЛКУ
-    public static Module getModule(String name) {
-        for (Module module : modules) {
-            if (module.name.equalsIgnoreCase(name)) {
-                return module;
-            }
-        }
-        return null;
-    }
+    public void onEnable() {}
+    public void onDisable() {}
+    public void onTick() {}
 }
