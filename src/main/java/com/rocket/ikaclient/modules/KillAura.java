@@ -1,27 +1,21 @@
 package com.rocket.ikaclient.modules;
 
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import org.lwjgl.glfw.GLFW;
-
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class KillAura extends Module {
-
     private static final double RANGE = 3.0;
     private static final double RANGE_SQUARED = RANGE * RANGE;
     private static final int CPS_MIN = 8;
     private static final int CPS_MAX = 12;
 
     private PlayerEntity target = null;
-    private float targetYaw = 0.0f;
-    private float targetPitch = 0.0f;
-    
     private long lastAttack = 0L;
     private long nextDelay = 0L;
 
@@ -40,21 +34,16 @@ public class KillAura extends Module {
 
     @Override
     public void onTick() {
-        target = null;
         if (!enabled || mc.player == null || mc.world == null || mc.interactionManager == null) {
-            nextDelay = 0L;
+            target = null;
             return;
         }
         
         target = findTarget();
         if (target == null) { nextDelay = 0L; return; }
         
-        calculateAngles(target);
-
-        if (mc.options.getPerspective() != net.minecraft.client.option.Perspective.FIRST_PERSON) {
-            mc.player.setYaw(targetYaw);
-            mc.player.setPitch(targetPitch);
-        }
+        // Физически доворачиваем камеру (Aim)
+        aimAtTarget(target);
         
         if (!isCritReady()) return;
 
@@ -65,12 +54,8 @@ public class KillAura extends Module {
         }
         if (now - lastAttack < nextDelay) return;
 
-        // ИСПРАВЛЕНИЕ: Добавили 4-й параметр (false) для горизонтальной коллизии
-        mc.player.networkHandler.sendPacket(new PlayerMoveC2SPacket.LookAndOnGround(targetYaw, targetPitch, mc.player.isOnGround(), false));
-        
         mc.interactionManager.attackEntity(mc.player, target);
         mc.player.swingHand(Hand.MAIN_HAND);
-        
         lastAttack = now;
         nextDelay = 0L;
     }
@@ -86,17 +71,20 @@ public class KillAura extends Module {
         return candidates.isEmpty() ? null : candidates.get(0);
     }
 
-    private void calculateAngles(PlayerEntity entity) {
-        Vec3d playerEyes = mc.player.getEyePos();
+    private void aimAtTarget(PlayerEntity entity) {
+        Vec3d eyes = mc.player.getEyePos();
         Vec3d targetEyes = entity.getEyePos();
-        Vec3d direction = targetEyes.subtract(playerEyes);
+        Vec3d direction = targetEyes.subtract(eyes);
 
         double horizontal = Math.sqrt(direction.x * direction.x + direction.z * direction.z);
+        float targetYaw = (float) (Math.toDegrees(Math.atan2(direction.z, direction.x)) - 90.0);
+        float targetPitch = (float) (-Math.toDegrees(Math.atan2(direction.y, horizontal)));
 
-        float calculatedYaw = (float) (Math.toDegrees(Math.atan2(direction.z, direction.x)) - 90.0);
-        float calculatedPitch = (float) (-Math.toDegrees(Math.atan2(direction.y, horizontal)));
+        float yawDifference = MathHelper.wrapDegrees(targetYaw - mc.player.getYaw());
+        float pitchDifference = MathHelper.wrapDegrees(targetPitch - mc.player.getPitch());
 
-        targetYaw = MathHelper.wrapDegrees(calculatedYaw);
-        targetPitch = MathHelper.clamp(MathHelper.wrapDegrees(calculatedPitch), -90.0f, 90.0f);
+        // Резкий доворот (180 градусов за тик) — камера "прилипает" к цели
+        mc.player.setYaw(mc.player.getYaw() + MathHelper.clamp(yawDifference, -180.0f, 180.0f));
+        mc.player.setPitch(MathHelper.clamp(mc.player.getPitch() + MathHelper.clamp(pitchDifference, -180.0f, 180.0f), -90.0f, 90.0f));
     }
 }
