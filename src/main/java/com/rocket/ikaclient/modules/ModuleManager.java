@@ -20,10 +20,18 @@ public class ModuleManager {
         modules.add(new ESP());
     }
 
-    // Мы вызываем это из MainClient. Внутри модулей уже есть проверка на enabled.
     public static void onTick() {
         for (Module module : modules) {
             module.onTick();
         }
+    }
+
+    public static Module getModule(String name) {
+        for (Module module : modules) {
+            if (module.name.equalsIgnoreCase(name)) {
+                return module;
+            }
+        }
+        return null;
     }
 }
