@@ -17,7 +17,7 @@ public class ClickGUI extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        // Просто затемняем фон
+        // Затемняем фон
         context.fill(0, 0, this.width, this.height, 0x80000000);
         
         int startX = this.width / 2 - 200;
@@ -31,9 +31,7 @@ public class ClickGUI extends Screen {
         // Верхняя панель
         context.fill(startX, startY, startX + width, startY + 25, 0xFF2A2A2A);
         context.drawText(textRenderer, "§lIka Client", startX + 10, startY + 8, 0xFFFFFFFF, true);
-        context.drawText(textRenderer, "§7Expensive Style", startX + width - 100, startY + 8, 0xFFAAAAAA, true);
-
-        // Линия разделителя
+        
         context.fill(startX, startY + 25, startX + width, startY + 26, 0xFF333333);
 
         // Вкладки слева
@@ -47,7 +45,6 @@ public class ClickGUI extends Screen {
             tabY += 25;
         }
 
-        // Линия разделителя слева
         context.fill(startX + 95, startY + 26, startX + 96, startY + height, 0xFF333333);
 
         // Модули справа
@@ -56,33 +53,21 @@ public class ClickGUI extends Screen {
         int col = 0;
 
         for (Module module : ModuleManager.modules) {
-            // Фильтр по вкладкам
             if (currentTab == 0 && !module.name.equals("KillAura")) continue;
             if (currentTab == 1 && !module.name.equals("FullBridge") && !module.name.equals("AutoSprint")) continue;
             if (currentTab == 2 && !module.name.equals("ESP")) continue;
-            if (currentTab == 3) continue; // Пусто
+            if (currentTab == 3) continue;
 
             // Плашка модуля
             context.fill(modX, modY, modX + 135, modY + 30, 0xFF2A2A2A);
-            
-            // Название
             context.drawText(textRenderer, module.name, modX + 8, modY + 11, 0xFFFFFFFF, true);
             
-            // Кнопка переключатель (справа)
-            int toggleX = modX + 100;
-            int toggleY = modY + 9;
-            context.fill(toggleX, toggleY, toggleX + 25, toggleY + 12, 0xFF555555);
-            
-            if (module.enabled) {
-                context.fill(toggleX, toggleY, toggleX + 25, toggleY + 12, 0xFF00FF00);
-                context.fill(toggleX + 13, toggleY + 1, toggleX + 24, toggleY + 11, 0xFFFFFFFF);
-            } else {
-                context.fill(toggleX + 1, toggleY + 1, toggleX + 12, toggleY + 11, 0xFFFFFFFF);
-            }
+            // Рисуем овальную кнопку (тумблер)
+            drawToggle(context, modX + 100, modY + 9, module.enabled);
 
             modY += 40;
             col++;
-            if (col == 2) { // 2 колонки
+            if (col == 2) {
                 modX += 145;
                 modY = startY + 35;
                 col = 0;
@@ -90,6 +75,35 @@ public class ClickGUI extends Screen {
         }
 
         super.render(context, mouseX, mouseY, delta);
+    }
+
+    // Метод для рисования овальных кнопок (без вылетов)
+    private void drawToggle(DrawContext context, int x, int y, boolean enabled) {
+        int bgColor = enabled ? 0xFF00FF00 : 0xFF555555;
+        int circleColor = 0xFFFFFFFF;
+        int width = 26;
+        int height = 14;
+        int radius = height / 2;
+
+        // Фон кнопки (овал)
+        context.fill(x + radius, y, x + width - radius, y + height, bgColor);
+        drawCircle(context, x + radius, y + radius, radius, bgColor);
+        drawCircle(context, x + width - radius, y + radius, radius, bgColor);
+
+        // Кружок внутри
+        int circleX = enabled ? x + width - radius : x + radius;
+        drawCircle(context, circleX, y + radius, radius - 2, circleColor);
+    }
+
+    // Безопасный круг
+    private void drawCircle(DrawContext context, int centerX, int centerY, int radius, int color) {
+        for (int i = -radius; i <= radius; i++) {
+            for (int j = -radius; j <= radius; j++) {
+                if (i * i + j * j <= radius * radius) {
+                    context.fill(centerX + i, centerY + j, centerX + i + 1, centerY + j + 1, color);
+                }
+            }
+        }
     }
 
     @Override
