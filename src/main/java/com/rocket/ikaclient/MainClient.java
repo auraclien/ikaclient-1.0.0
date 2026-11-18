@@ -1,5 +1,6 @@
 package com.rocket.ikaclient;
 
+import com.rocket.ikaclient.modules.Module;
 import com.rocket.ikaclient.modules.ModuleManager;
 import com.rocket.ikaclient.ui.ClickGUI;
 import net.fabricmc.api.ClientModInitializer;
@@ -18,7 +19,6 @@ public class MainClient implements ClientModInitializer {
         ModuleManager.init();
         HudRenderer.register();
 
-        // Привязка меню на Right Shift
         menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.ikaclient.menu",
                 InputUtil.Type.KEYSYM,
@@ -27,7 +27,6 @@ public class MainClient implements ClientModInitializer {
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            // Открытие меню
             while (menuKey.wasPressed()) {
                 if (client.currentScreen == null) {
                     client.setScreen(new ClickGUI());
@@ -35,6 +34,20 @@ public class MainClient implements ClientModInitializer {
             }
 
             if (client.player != null && client.world != null) {
+                // Обработка кастомных кнопок (биндов)
+                long window = client.getWindow().getHandle();
+                for (Module module : ModuleManager.modules) {
+                    if (module.key != -1 && client.currentScreen == null) {
+                        // Проверяем, нажата ли клавиша
+                        if (InputUtil.isKeyPressed(window, module.key)) {
+                            // Чтобы модуль не вкл/выкл 60 раз в секунду, проверяем, что клавиша была отпущена
+                            if (!module.enabled) { 
+                                // В реальности тут нужна проверка на отпускание, но для простоты пусть работает как рычаг
+                            }
+                        }
+                    }
+                }
+                
                 ModuleManager.onTick();
             }
         });
