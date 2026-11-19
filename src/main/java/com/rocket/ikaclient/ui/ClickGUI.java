@@ -5,7 +5,7 @@ import com.rocket.ikaclient.modules.ModuleManager;
 import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.input.KeyInput; // Новый импорт для 1.21.11
+import net.minecraft.client.input.KeyInput;
 import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
@@ -49,7 +49,7 @@ public class ClickGUI extends Screen {
         for (Module module : ModuleManager.modules) {
             if (currentTab == 0 && !module.name.equals("KillAura")) continue;
             if (currentTab == 1 && !module.name.equals("FullBright") && !module.name.equals("AutoSprint")) continue;
-            if (currentTab == 2 && !module.name.equals("ESP")) continue;
+            if (currentTab == 2 && !module.name.equals("ChestESP")) continue; // Тут изменили
             if (currentTab == 3) continue;
 
             if (waitingForBind == module) {
@@ -99,7 +99,7 @@ public class ClickGUI extends Screen {
         for (Module module : ModuleManager.modules) {
             if (currentTab == 0 && !module.name.equals("KillAura")) continue;
             if (currentTab == 1 && !module.name.equals("FullBright") && !module.name.equals("AutoSprint")) continue;
-            if (currentTab == 2 && !module.name.equals("ESP")) continue;
+            if (currentTab == 2 && !module.name.equals("ChestESP")) continue; // Тут изменили
             if (currentTab == 3) continue;
 
             if (mouseX >= modX && mouseX <= modX + 135 && mouseY >= modY && mouseY <= modY + 30) {
@@ -124,11 +124,10 @@ public class ClickGUI extends Screen {
         return super.mouseClicked(click, doubled);
     }
 
-    // ИСПРАВЛЕНИЕ: Используем KeyInput вместо int keyCode
     @Override
     public boolean keyPressed(KeyInput input) {
         if (waitingForBind != null) {
-            waitingForBind.key = input.key(); // Сохраняем код клавиши
+            waitingForBind.key = input.key();
             waitingForBind = null;
             return true;
         }
