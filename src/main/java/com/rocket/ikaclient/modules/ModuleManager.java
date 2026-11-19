@@ -13,11 +13,11 @@ public class ModuleManager {
         modules.add(new KillAura());
         
         // Movement
-        modules.add(new FullBridge());
+        modules.add(new FullBridge()); // Наш FullBright
         modules.add(new AutoSprint());
         
         // Render
-        modules.add(new ESP());
+        modules.add(new ChestESP()); // Заменили ESP на ChestESP
     }
 
     public static void onTick() {
