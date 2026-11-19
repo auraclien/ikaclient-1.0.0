@@ -10,9 +10,15 @@ import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
 
+import java.util.HashSet;
+import java.util.Set;
+
 public class MainClient implements ClientModInitializer {
     public static final String MOD_ID = "ikaclient";
     private static KeyBinding menuKey;
+    
+    // Для отслеживания нажатий клавиш (чтобы модуль не вкл/выкл 60 раз в секунду)
+    private static final Set<Integer> pressedKeys = new HashSet<>();
 
     @Override
     public void onInitializeClient() {
@@ -34,12 +40,18 @@ public class MainClient implements ClientModInitializer {
             }
 
             if (client.player != null && client.world != null) {
-                // Обработка биндов
-                // ИСПРАВЛЕНИЕ: передаем client.getWindow() вместо client.getWindow().getHandle()
+                long window = client.getWindow().getHandle();
+                
                 for (Module module : ModuleManager.modules) {
                     if (module.key != -1 && client.currentScreen == null) {
-                        if (InputUtil.isKeyPressed(client.getWindow(), module.key)) {
-                            // (Тут можно реализовать логику однократного нажатия)
+                        // В 1.21.11 InputUtil принимает Window, но лучше использовать GLFW
+                        boolean isPressed = GLFW.glfwGetKey(window, module.key) == GLFW.GLFW_PRESS;
+                        
+                        if (isPressed && !pressedKeys.contains(module.key)) {
+                            module.toggle();
+                            pressedKeys.add(module.key);
+                        } else if (!isPressed) {
+                            pressedKeys.remove(module.key);
                         }
                     }
                 }
