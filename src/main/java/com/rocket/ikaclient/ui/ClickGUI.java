@@ -5,6 +5,7 @@ import com.rocket.ikaclient.modules.ModuleManager;
 import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.input.KeyInput; // Новый импорт для 1.21.11
 import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
@@ -26,25 +27,21 @@ public class ClickGUI extends Screen {
         int width = 400;
         int height = 240;
 
-        // Фон меню
         context.fill(startX, startY, startX + width, startY + height, 0xFF1E1E1E);
         context.fill(startX, startY, startX + width, startY + 25, 0xFF2A2A2A);
         context.drawText(textRenderer, "§lIka Client", startX + 10, startY + 8, 0xFFFFFFFF, true);
         context.fill(startX, startY + 25, startX + width, startY + 26, 0xFF333333);
 
-        // Вкладки
         int tabY = startY + 35;
         for (int i = 0; i < tabs.length; i++) {
             boolean selected = (currentTab == i);
             int tabColor = selected ? 0xFF00AAFF : 0xFF2A2A2A;
-            
             context.fill(startX + 5, tabY, startX + 90, tabY + 20, tabColor);
             context.drawText(textRenderer, tabs[i], startX + 10, tabY + 6, 0xFFFFFFFF, true);
             tabY += 25;
         }
         context.fill(startX + 95, startY + 26, startX + 96, startY + height, 0xFF333333);
 
-        // Модули
         int modX = startX + 105;
         int modY = startY + 35;
         int col = 0;
@@ -59,16 +56,15 @@ public class ClickGUI extends Screen {
                 context.fill(modX, modY, modX + 135, modY + 30, 0xFF555555);
                 context.drawText(textRenderer, "§ePress key...", modX + 8, modY + 11, 0xFFFFFFFF, true);
             } else {
-                int bgColor = module.enabled ? 0xFF2E7D32 : 0xFF2A2A2A; // Зеленый при включении
+                int bgColor = module.enabled ? 0xFF2E7D32 : 0xFF2A2A2A;
                 context.fill(modX, modY, modX + 135, modY + 30, bgColor);
-                
                 String bindText = module.key != -1 ? " §7[" + GLFW.glfwGetKeyName(module.key, 0) + "]" : "";
                 context.drawText(textRenderer, module.name + bindText, modX + 8, modY + 11, 0xFFFFFFFF, true);
             }
 
             modY += 40;
             col++;
-            if (col == 2) { // 2 колонки
+            if (col == 2) {
                 modX += 145;
                 modY = startY + 35;
                 col = 0;
@@ -87,7 +83,6 @@ public class ClickGUI extends Screen {
         int startX = this.width / 2 - 200;
         int startY = this.height / 2 - 120;
 
-        // Клики по вкладкам
         int tabY = startY + 35;
         for (int i = 0; i < tabs.length; i++) {
             if (mouseX >= startX + 5 && mouseX <= startX + 90 && mouseY >= tabY && mouseY <= tabY + 20) {
@@ -97,7 +92,6 @@ public class ClickGUI extends Screen {
             tabY += 25;
         }
 
-        // Клики по модулям
         int modX = startX + 105;
         int modY = startY + 35;
         int col = 0;
@@ -109,10 +103,10 @@ public class ClickGUI extends Screen {
             if (currentTab == 3) continue;
 
             if (mouseX >= modX && mouseX <= modX + 135 && mouseY >= modY && mouseY <= modY + 30) {
-                if (button == 0) { // ЛКМ - вкл/выкл
+                if (button == 0) { 
                     module.toggle();
                     return true;
-                } else if (button == 2) { // СКМ - бинд
+                } else if (button == 2) { 
                     waitingForBind = module;
                     return true;
                 }
@@ -130,14 +124,15 @@ public class ClickGUI extends Screen {
         return super.mouseClicked(click, doubled);
     }
 
+    // ИСПРАВЛЕНИЕ: Используем KeyInput вместо int keyCode
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(KeyInput input) {
         if (waitingForBind != null) {
-            waitingForBind.key = keyCode;
+            waitingForBind.key = input.key(); // Сохраняем код клавиши
             waitingForBind = null;
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(input);
     }
 
     @Override
