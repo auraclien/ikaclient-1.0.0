@@ -34,16 +34,12 @@ public class MainClient implements ClientModInitializer {
             }
 
             if (client.player != null && client.world != null) {
-                // Обработка кастомных кнопок (биндов)
-                long window = client.getWindow().getHandle();
+                // Обработка биндов
+                // ИСПРАВЛЕНИЕ: передаем client.getWindow() вместо client.getWindow().getHandle()
                 for (Module module : ModuleManager.modules) {
                     if (module.key != -1 && client.currentScreen == null) {
-                        // Проверяем, нажата ли клавиша
-                        if (InputUtil.isKeyPressed(window, module.key)) {
-                            // Чтобы модуль не вкл/выкл 60 раз в секунду, проверяем, что клавиша была отпущена
-                            if (!module.enabled) { 
-                                // В реальности тут нужна проверка на отпускание, но для простоты пусть работает как рычаг
-                            }
+                        if (InputUtil.isKeyPressed(client.getWindow(), module.key)) {
+                            // (Тут можно реализовать логику однократного нажатия)
                         }
                     }
                 }
