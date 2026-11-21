@@ -16,17 +16,13 @@ public class HudRenderer {
     private static final int ACCENT_COLOR = 0xFF00AAFF;
 
     public static void register() {
-        HudElementRegistry.addLast(
-                Identifier.of(MainClient.MOD_ID, "hud"),
-                HudRenderer::render
-        );
+        HudElementRegistry.addLast(Identifier.of(MainClient.MOD_ID, "hud"), HudRenderer::render);
     }
 
     private static void render(DrawContext context, RenderTickCounter tickCounter) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null || mc.world == null) return;
 
-        // 1. Левая панель
         int x = 6; int y = 6; int width = 140;
         int activeModules = 0;
         for (Module m : ModuleManager.modules) if (m.enabled) activeModules++;
@@ -34,7 +30,6 @@ public class HudRenderer {
 
         context.fill(x, y, x + width, y + height, BG_COLOR);
         context.fill(x, y, x + 3, y + height, ACCENT_COLOR);
-
         context.drawText(mc.textRenderer, "§lIKA", x + 8, y + 5, ACCENT_COLOR, true);
         context.drawText(mc.textRenderer, "§7CLIENT", x + 32, y + 5, 0xFFAAAAAA, true);
         context.fill(x + 5, y + 16, x + width - 5, y + 17, 0x40FFFFFF);
@@ -54,7 +49,6 @@ public class HudRenderer {
             context.drawText(mc.textRenderer, crit ? "CRIT" : "WAIT", x + width - 35, y + height - 12, crit ? 0xFF55FF55 : 0xFFFFAA00, true);
         }
 
-        // 2. Правая панель (ChestESP)
         ChestESP chestEsp = (ChestESP) ModuleManager.getModule("ChestESP");
         if (chestEsp != null && chestEsp.enabled) {
             int rightX = mc.getWindow().getScaledWidth() - 160;
@@ -72,10 +66,12 @@ public class HudRenderer {
                 double dist = Math.sqrt(Math.pow(pos.getX() + 0.5 - px, 2) + Math.pow(pos.getY() + 0.5 - py, 2) + Math.pow(pos.getZ() + 0.5 - pz, 2));
                 String text = String.format("%.0fм [%d, %d, %d]", dist, pos.getX(), pos.getY(), pos.getZ());
                 rightY += 12;
-                context.drawText(mc.textRenderer, text, rightX + 5, rightY, 0xFFFFFF00, true);
+                context.fill(rightX, rightY, rightX + 150, rightY + 12, BG_COLOR);
+                context.drawText(mc.textRenderer, text, rightX + 5, rightY + 2, 0xFFFFFF00, true);
                 count++;
             }
-            context.fill(rightX - 1, rightY + 14 - (count * 12) - 1, rightX + 151, rightY + 15, 0xFFFFFF00);
+            context.fill(rightX - 1, 5, rightX + 151, 6, 0xFFFFFF00); 
+            context.fill(rightX - 1, rightY + 14, rightX + 151, rightY + 15, 0xFFFFFF00); 
         }
     }
 }
