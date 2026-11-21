@@ -8,16 +8,10 @@ public class ModuleManager {
 
     public static void init() {
         modules.clear();
-        
-        // Combat
         modules.add(new KillAura());
-        
-        // Movement
-        modules.add(new FullBridge()); // Наш FullBright
+        modules.add(new FullBridge());
         modules.add(new AutoSprint());
-        
-        // Render
-        modules.add(new ChestESP()); // Заменили ESP на ChestESP
+        modules.add(new ChestESP());
     }
 
     public static void onTick() {
