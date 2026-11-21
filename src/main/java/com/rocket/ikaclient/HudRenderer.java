@@ -74,12 +74,19 @@ public class HudRenderer {
             context.drawText(mc.textRenderer, "§eChestESP", rightX + 5, rightY + 5, 0xFFFFFFFF, true);
 
             int count = 0;
-            Vec3d playerPos = mc.player.getPos();
+            // ИСПРАВЛЕНИЕ: Вместо getPos() используем прямые координаты
+            double px = mc.player.getX();
+            double py = mc.player.getY();
+            double pz = mc.player.getZ();
 
             for (BlockPos pos : chestEsp.getHighlightedBlocks()) {
                 if (count >= 10) break; // Показываем только 10 ближайших
 
-                double dist = playerPos.distanceTo(Vec3d.ofCenter(pos));
+                // Вычисляем дистанцию вручную
+                double dist = Math.sqrt(Math.pow(pos.getX() + 0.5 - px, 2) + 
+                                        Math.pow(pos.getY() + 0.5 - py, 2) + 
+                                        Math.pow(pos.getZ() + 0.5 - pz, 2));
+                
                 String text = String.format("%.0fм [%d, %d, %d]", dist, pos.getX(), pos.getY(), pos.getZ());
                 
                 rightY += 12;
