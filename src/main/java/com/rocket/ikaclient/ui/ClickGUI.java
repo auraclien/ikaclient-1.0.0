@@ -2,101 +2,137 @@ package com.rocket.ikaclient.ui;
 
 import com.rocket.ikaclient.modules.Module;
 import com.rocket.ikaclient.modules.ModuleManager;
-import net.minecraft.client.gui.Click;
+import com.rocket.ikaclient.utils.RenderUtils;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.input.KeyInput;
 import net.minecraft.text.Text;
-import org.lwjgl.glfw.GLFW;
 
 public class ClickGUI extends Screen {
     private int currentTab = 0;
     private final String[] tabs = {"Combat", "Movement", "Render", "Misc"};
-    private Module waitingForBind = null;
+    
+    // Координаты и размеры окна
+    private final int windowWidth = 500;
+    private final int windowHeight = 350;
+    private int startX, startY;
 
-    public ClickGUI() { super(Text.literal("Ika Client Menu")); }
+    public ClickGUI() { 
+        super(Text.literal("Ika Client")); 
+    }
+
+    @Override
+    protected void init() {
+        super.init();
+        // Центрируем окно
+        this.startX = (this.width - windowWidth) / 2;
+        this.startY = (this.height - windowHeight) / 2;
+    }
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        context.fill(0, 0, this.width, this.height, 0x80000000);
-        int startX = this.width / 2 - 200;
-        int startY = this.height / 2 - 120;
-        int width = 400; int height = 240;
+        // Затемняем фон игры
+        context.fill(0, 0, this.width, this.height, 0x90000000);
 
-        context.fill(startX, startY, startX + width, startY + height, 0xFF1E1E1E);
-        context.fill(startX, startY, startX + width, startY + 25, 0xFF2A2A2A);
-        context.drawText(textRenderer, "§lIka Client", startX + 10, startY + 8, 0xFFFFFFFF, true);
-        context.fill(startX, startY + 25, startX + width, startY + 26, 0xFF333333);
+        // Рисуем основное окно (темно-серое)
+        RenderUtils.drawRoundedRect(context, startX, startY, windowWidth, windowHeight, 10, 0xFF1E1E1E);
+        
+        // Верхняя панель (Header)
+        RenderUtils.drawRoundedRect(context, startX, startY, windowWidth, 40, 10, 0xFF252525);
+        // Срезаем низ хедера, чтобы он не перекрывал углы окна
+        context.fill(startX + 10, startY + 30, startX + windowWidth - 10, startY + 40, 0xFF252525);
+        
+        // Название клиента
+        context.drawTextWithShadow(textRenderer, "IKA CLIENT", startX + 20, startY + 14, 0xFFFFFFFF);
 
-        int tabY = startY + 35;
+        // Рисуем вкладки (Tabs)
+        int tabX = startX + 20;
         for (int i = 0; i < tabs.length; i++) {
             boolean selected = (currentTab == i);
-            int tabColor = selected ? 0xFF00AAFF : 0xFF2A2A2A;
-            context.fill(startX + 5, tabY, startX + 90, tabY + 20, tabColor);
-            context.drawText(textRenderer, tabs[i], startX + 10, tabY + 6, 0xFFFFFFFF, true);
-            tabY += 25;
+            int color = selected ? 0xFF00AAFF : 0xFF888888;
+            
+            context.drawTextWithShadow(textRenderer, tabs[i], tabX, startY + 14, color);
+            
+            // Линия под активной вкладкой
+            if (selected) {
+                int textWidth = textRenderer.getWidth(tabs[i]);
+                context.fill(tabX, startY + 35, tabX + textWidth, startY + 38, 0xFF00AAFF);
+            }
+            tabX += textRenderer.getWidth(tabs[i]) + 20;
         }
-        context.fill(startX + 95, startY + 26, startX + 96, startY + height, 0xFF333333);
 
-        int modX = startX + 105; int modY = startY + 35; int col = 0;
+        // Разделитель
+        context.fill(startX + 10, startY + 45, startX + windowWidth - 10, startY + 46, 0xFF333333);
+
+        // Рисуем модули
+        int modX = startX + 20;
+        int modY = startY + 60;
+        int col = 0;
 
         for (Module module : ModuleManager.modules) {
+            // Фильтрация по вкладкам (пока простая логика, потом усложним)
             if (currentTab == 0 && !module.name.equals("KillAura")) continue;
             if (currentTab == 1 && !module.name.equals("FullBright") && !module.name.equals("AutoSprint")) continue;
             if (currentTab == 2 && !module.name.equals("ChestESP")) continue;
             if (currentTab == 3) continue;
 
-            if (waitingForBind == module) {
-                context.fill(modX, modY, modX + 135, modY + 30, 0xFF555555);
-                context.drawText(textRenderer, "§ePress key...", modX + 8, modY + 11, 0xFFFFFFFF, true);
-            } else {
-                int bgColor = module.enabled ? 0xFF2E7D32 : 0xFF2A2A2A;
-                context.fill(modX, modY, modX + 135, modY + 30, bgColor);
-                String bindText = module.key != -1 ? " §7[" + GLFW.glfwGetKeyName(module.key, 0) + "]" : "";
-                context.drawText(textRenderer, module.name + bindText, modX + 8, modY + 11, 0xFFFFFFFF, true);
+            // Фон модуля (чуть светлее основного окна)
+            RenderUtils.drawRoundedRect(context, modX, modY, 210, 30, 8, 0xFF2A2A2A);
+            
+            // Название модуля
+            context.drawTextWithShadow(textRenderer, module.name, modX + 10, modY + 10, 0xFFFFFFFF);
+
+            // Рисуем наш красивый переключатель справа
+            RenderUtils.drawSwitch(context, modX + 170, modY + 5, module.enabled);
+
+            // Переход на новую колонку
+            modY += 40;
+            col++;
+            if (col == 2) { 
+                modX += 225; 
+                modY = startY + 60; 
+                col = 0; 
             }
-            modY += 40; col++;
-            if (col == 2) { modX += 145; modY = startY + 35; col = 0; }
         }
+        
         super.render(context, mouseX, mouseY, delta);
     }
 
     @Override
-    public boolean mouseClicked(Click click, boolean doubled) {
-        double mouseX = click.x(); double mouseY = click.y(); int button = click.button();
-        int startX = this.width / 2 - 200; int startY = this.height / 2 - 120;
-
-        int tabY = startY + 35;
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        // Клик по вкладкам
+        int tabX = startX + 20;
         for (int i = 0; i < tabs.length; i++) {
-            if (mouseX >= startX + 5 && mouseX <= startX + 90 && mouseY >= tabY && mouseY <= tabY + 20) {
-                currentTab = i; return true;
+            int w = textRenderer.getWidth(tabs[i]);
+            if (mouseX >= tabX && mouseX <= tabX + w && mouseY >= startY + 10 && mouseY <= startY + 30) {
+                currentTab = i;
+                return true;
             }
-            tabY += 25;
+            tabX += w + 20;
         }
 
-        int modX = startX + 105; int modY = startY + 35; int col = 0;
+        // Клик по модулям (включение/выключение)
+        int modX = startX + 20;
+        int modY = startY + 60;
+        int col = 0;
+
         for (Module module : ModuleManager.modules) {
             if (currentTab == 0 && !module.name.equals("KillAura")) continue;
             if (currentTab == 1 && !module.name.equals("FullBright") && !module.name.equals("AutoSprint")) continue;
             if (currentTab == 2 && !module.name.equals("ChestESP")) continue;
             if (currentTab == 3) continue;
 
-            if (mouseX >= modX && mouseX <= modX + 135 && mouseY >= modY && mouseY <= modY + 30) {
-                if (button == 0) { module.toggle(); return true; }
-                else if (button == 2) { waitingForBind = module; return true; }
+            // Проверяем попадание в область модуля
+            if (mouseX >= modX && mouseX <= modX + 210 && mouseY >= modY && mouseY <= modY + 30) {
+                module.toggle(); // Переключаем модуль
+                return true;
             }
-            modY += 40; col++;
-            if (col == 2) { modX += 145; modY = startY + 35; col = 0; }
-        }
-        return super.mouseClicked(click, doubled);
-    }
 
-    @Override
-    public boolean keyPressed(KeyInput input) {
-        if (waitingForBind != null) {
-            waitingForBind.key = input.key(); waitingForBind = null; return true;
+            modY += 40;
+            col++;
+            if (col == 2) { modX += 225; modY = startY + 60; col = 0; }
         }
-        return super.keyPressed(input);
+
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
