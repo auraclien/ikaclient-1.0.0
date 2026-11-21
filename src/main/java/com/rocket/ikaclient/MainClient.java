@@ -16,7 +16,6 @@ import java.util.Set;
 public class MainClient implements ClientModInitializer {
     public static final String MOD_ID = "ikaclient";
     private static KeyBinding menuKey;
-    
     private static final Set<Integer> pressedKeys = new HashSet<>();
 
     @Override
@@ -25,26 +24,20 @@ public class MainClient implements ClientModInitializer {
         HudRenderer.register();
 
         menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.ikaclient.menu",
-                InputUtil.Type.KEYSYM,
-                GLFW.GLFW_KEY_RIGHT_SHIFT,
+                "key.ikaclient.menu", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT_SHIFT,
                 KeyBinding.Category.create(net.minecraft.util.Identifier.of(MOD_ID, "main"))
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (menuKey.wasPressed()) {
-                if (client.currentScreen == null) {
-                    client.setScreen(new ClickGUI());
-                }
+                if (client.currentScreen == null) client.setScreen(new ClickGUI());
             }
 
             if (client.player != null && client.world != null) {
                 long window = client.getWindow().getHandle();
-                
                 for (Module module : ModuleManager.modules) {
                     if (module.key != -1 && client.currentScreen == null) {
                         boolean isPressed = GLFW.glfwGetKey(window, module.key) == GLFW.GLFW_PRESS;
-                        
                         if (isPressed && !pressedKeys.contains(module.key)) {
                             module.toggle();
                             pressedKeys.add(module.key);
@@ -53,7 +46,6 @@ public class MainClient implements ClientModInitializer {
                         }
                     }
                 }
-                
                 ModuleManager.onTick();
             }
         });
