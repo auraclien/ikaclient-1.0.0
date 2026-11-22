@@ -1,9 +1,10 @@
 package com.rocket.ikaclient;
 
+import com.rocket.ikaclient.modules.ClickPearl;
 import com.rocket.ikaclient.modules.Module;
 import com.rocket.ikaclient.modules.ModuleManager;
 import com.rocket.ikaclient.ui.ClickGUI;
-import com.rocket.ikaclient.utils.ChatListener; // <--- ДОБАВИЛИ ИМПОРТ
+import com.rocket.ikaclient.utils.ChatListener;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -23,7 +24,7 @@ public class MainClient implements ClientModInitializer {
     public void onInitializeClient() {
         ModuleManager.init();
         HudRenderer.register();
-        ChatListener.register(); // <--- ДОБАВИЛИ ЭТУ СТРОЧКУ
+        ChatListener.register(); // Подключаем подсказки
 
         menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.ikaclient.menu", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT_SHIFT,
@@ -38,6 +39,19 @@ public class MainClient implements ClientModInitializer {
             if (client.player != null && client.world != null) {
                 long window = client.getWindow().getHandle();
                 for (Module module : ModuleManager.modules) {
+                    // Если это ClickPearl и он включен
+                    if (module instanceof ClickPearl pearl && pearl.enabled) {
+                        boolean isPressed = GLFW.glfwGetKey(window, pearl.key) == GLFW.GLFW_PRESS;
+                        if (isPressed && !pressedKeys.contains(pearl.key)) {
+                            pearl.throwPearl(); // Вызываем бросок
+                            pressedKeys.add(pearl.key);
+                        } else if (!isPressed) {
+                            pressedKeys.remove(pearl.key);
+                        }
+                        continue;
+                    }
+
+                    // Обычная обработка биндов для других модулей
                     if (module.key != -1 && client.currentScreen == null) {
                         boolean isPressed = GLFW.glfwGetKey(window, module.key) == GLFW.GLFW_PRESS;
                         if (isPressed && !pressedKeys.contains(module.key)) {
