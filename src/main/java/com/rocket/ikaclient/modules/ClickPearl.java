@@ -8,20 +8,18 @@ public class ClickPearl extends Module {
     private int previousSlot = -1;
 
     public ClickPearl() {
-        super("ClickPearl", GLFW.GLFW_KEY_G); // По умолчанию на G
+        super("ClickPearl", GLFW.GLFW_KEY_G);
     }
 
     @Override
     public void onTick() {
-        // Модуль работает по бинду, поэтому в onTick мы ничего не делаем.
-        // Вся логика будет в MainClient при нажатии кнопки.
+        // Логика вызывается из MainClient по бинду
     }
 
-    // Этот метод вызывается из MainClient, когда нажата клавиша бинда
     public void throwPearl() {
         if (mc.player == null || mc.interactionManager == null) return;
 
-        // Ищем слот с эндер-жемчугом (в хотбаре)
+        // Ищем слот с эндер-жемчугом в хотбаре (0-8)
         int pearlSlot = -1;
         for (int i = 0; i < 9; i++) {
             if (mc.player.getInventory().getStack(i).getItem() == Items.ENDER_PEARL) {
@@ -31,7 +29,7 @@ public class ClickPearl extends Module {
         }
 
         if (pearlSlot != -1) {
-            // Запоминаем текущий слот
+            // Запоминаем текущий слот (теперь через публичное поле игрока)
             previousSlot = mc.player.getInventory().selectedSlot;
             
             // Переключаемся на жемчуг
