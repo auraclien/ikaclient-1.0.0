@@ -1,6 +1,6 @@
 package com.rocket.ikaclient.modules;
 
-import com.rocket.ikaclient.utils.FriendManager; // <--- ДОБАВИЛИ ИМПОРТ
+import com.rocket.ikaclient.utils.FriendManager;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.MathHelper;
@@ -8,17 +8,29 @@ import net.minecraft.util.math.Vec3d;
 import org.lwjgl.glfw.GLFW;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class KillAura extends Module {
-    private static final double RANGE = 3.0;
+    private static final double RANGE = 2.95;
     private static final double RANGE_SQUARED = RANGE * RANGE;
     private static final int CPS_MIN = 8;
-    private static final int CPS_MAX = 12;
+    private static final int CPS_MAX = 11;
 
     private PlayerEntity target = null;
     private long lastAttack = 0L;
     private long nextDelay = 0L;
+    private final Random random = new Random();
+
+    // Переменные из Neptune
+    private int currentAnchorIndex = 0;
+    private long lastAnchorSwitch = 0L;
+    private float swayYaw = 0.0f;
+    private float swayPitch = 0.0f;
+    private long lastSwayUpdate = 0L;
+
+    // Наши точки (как в SpaceTimesRotation.Anchor)
+    private static final float[] HEIGHT_FACTORS = {0.87f, 0.75f, 0.66f, 0.58f, 0.46f, 0.36f};
 
     public KillAura() { super("KillAura", GLFW.GLFW_KEY_R); }
     public PlayerEntity getTarget() { return target; }
@@ -35,51 +47,92 @@ public class KillAura extends Module {
         if (!enabled || mc.player == null || mc.world == null || mc.interactionManager == null) {
             target = null; return;
         }
-        target = findTarget();
-        if (target == null) { nextDelay = 0L; return; }
         
-        aimAtTarget(target);
+        target = findTarget();
+        if (target == null) { 
+            nextDelay = 0L; 
+            return; 
+        }
+        
+        // Наводимся с рандомизацией и точками (как в Neptune)
+        aimAtTargetNeptuneStyle(target);
         
         if (!isCritReady()) return;
 
         long now = System.currentTimeMillis();
         if (nextDelay == 0L) {
             int cps = ThreadLocalRandom.current().nextInt(CPS_MIN, CPS_MAX + 1);
-            nextDelay = 1000L / cps + ThreadLocalRandom.current().nextLong(-5L, 6L);
+            nextDelay = 1000L / cps + ThreadLocalRandom.current().nextLong(-8L, 9L);
         }
         if (now - lastAttack < nextDelay) return;
 
         mc.interactionManager.attackEntity(mc.player, target);
         mc.player.swingHand(Hand.MAIN_HAND);
-        lastAttack = now; nextDelay = 0L;
+        lastAttack = now; 
+        nextDelay = 0L;
+        
+        // После удара меняем точку (как onAttack в Neptune)
+        currentAnchorIndex = ThreadLocalRandom.current().nextInt(HEIGHT_FACTORS.length);
+        lastAnchorSwitch = now;
     }
 
     private PlayerEntity findTarget() {
         List<PlayerEntity> candidates = mc.world.getPlayers().stream()
                 .filter(e -> e != mc.player && e.isAlive() && !e.isRemoved() && !e.isCreative() && !e.isSpectator())
-                // ВОТ НАША НОВАЯ ПРОВЕРКА НА ДРУГА
                 .filter(e -> !FriendManager.isFriend(e.getName().getString())) 
                 .filter(e -> mc.player.squaredDistanceTo(e) <= RANGE_SQUARED)
-                .filter(mc.player::canSee)
+                .filter(mc.player::canSee) 
                 .map(e -> (PlayerEntity) e)
                 .sorted(Comparator.comparingDouble(mc.player::squaredDistanceTo))
                 .toList();
         return candidates.isEmpty() ? null : candidates.get(0);
     }
 
-    private void aimAtTarget(PlayerEntity entity) {
+    private void aimAtTargetNeptuneStyle(PlayerEntity entity) {
+        long now = System.currentTimeMillis();
+        
+        // Смена точки на теле (каждые 110-430 мс, как в коде Neptune)
+        if (now - lastAnchorSwitch > ThreadLocalRandom.current().nextLong(110, 430)) {
+            currentAnchorIndex = ThreadLocalRandom.current().nextInt(HEIGHT_FACTORS.length);
+            lastAnchorSwitch = now;
+        }
+
+        // Вычисляем позицию точки на теле
+        float heightFactor = HEIGHT_FACTORS[currentAnchorIndex];
+        double targetX = entity.getX();
+        double targetY = entity.getY() + (entity.getHeight() * heightFactor);
+        double targetZ = entity.getZ();
+        
+        // Небольшое случайное отклонение в сторону (как withRandomOffset)
+        targetX += (random.nextDouble() - 0.5) * 0.1;
+        targetZ += (random.nextDouble() - 0.5) * 0.1;
+
         Vec3d eyes = mc.player.getEyePos();
-        Vec3d targetEyes = entity.getEyePos();
+        Vec3d targetEyes = new Vec3d(targetX, targetY, targetZ);
         Vec3d direction = targetEyes.subtract(eyes);
 
         double horizontal = Math.sqrt(direction.x * direction.x + direction.z * direction.z);
         float targetYaw = (float) (Math.toDegrees(Math.atan2(direction.z, direction.x)) - 90.0);
         float targetPitch = (float) (-Math.toDegrees(Math.atan2(direction.y, horizontal)));
 
+        // Система "SpaceTimes" (плавное покачивание камеры)
+        // Каждые 70-190 мс меняем фазу покачивания
+        if (now - lastSwayUpdate > ThreadLocalRandom.current().nextLong(70, 190)) {
+            swayYaw = ThreadLocalRandom.current().nextFloat(-0.4f, 0.4f);
+            swayPitch = ThreadLocalRandom.current().nextFloat(-0.2f, 0.2f);
+            lastSwayUpdate = now;
+        }
+        
+        targetYaw += swayYaw;
+        targetPitch += swayPitch;
+
         float yawDiff = MathHelper.wrapDegrees(targetYaw - mc.player.getYaw());
         float pitchDiff = MathHelper.wrapDegrees(targetPitch - mc.player.getPitch());
 
-        mc.player.setYaw(mc.player.getYaw() + MathHelper.clamp(yawDiff, -180.0f, 180.0f));
-        mc.player.setPitch(MathHelper.clamp(mc.player.getPitch() + MathHelper.clamp(pitchDiff, -180.0f, 180.0f), -90.0f, 90.0f));
+        // Плавность (smoothFactor), как в Neptune
+        float smoothFactor = 0.45f; 
+        
+        mc.player.setYaw(mc.player.getYaw() + yawDiff * smoothFactor);
+        mc.player.setPitch(MathHelper.clamp(mc.player.getPitch() + pitchDiff * smoothFactor, -90.0f, 90.0f));
     }
 }
