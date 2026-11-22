@@ -8,12 +8,11 @@ public class ChatListener {
 
     public static void register() {
         ClientSendMessageEvents.ALLOW_CHAT.register(message -> {
-            // Если сообщение начинается с точки - обрабатываем
             if (message.startsWith(".")) {
                 handleCommand(message);
-                return false; // false значит "не отправлять на сервер"
+                return false; // Не отправлять на сервер
             }
-            return true; // обычные сообщения отправляем
+            return true;
         });
     }
 
@@ -22,7 +21,14 @@ public class ChatListener {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null) return;
 
-        // Команда .friend
+        if (args[0].equalsIgnoreCase(".help")) {
+            sendMessage(mc, "§b--- Ika Client Commands ---");
+            sendMessage(mc, "§e.friend add <ник> §7- Добавить друга");
+            sendMessage(mc, "§e.friend remove <ник> §7- Удалить друга");
+            sendMessage(mc, "§e.friend list §7- Список друзей");
+            return;
+        }
+
         if (args[0].equalsIgnoreCase(".friend")) {
             if (args.length < 2) {
                 sendMessage(mc, "§c[Ika] Usage: .friend <add/remove/list> [nick]");
