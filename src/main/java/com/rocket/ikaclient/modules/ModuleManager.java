@@ -9,6 +9,7 @@ public class ModuleManager {
     public static void init() {
         modules.clear();
         modules.add(new KillAura());
+        modules.add(new ClickPearl()); // <--- НОВЫЙ МОДУЛЬ
         modules.add(new FullBridge());
         modules.add(new AutoSprint());
         modules.add(new ChestESP());
