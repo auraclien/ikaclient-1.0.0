@@ -18,7 +18,6 @@ public class ClickGUI extends Screen {
     private final int windowHeight = 350;
     private int startX, startY;
 
-    // Добавляем переменную для ожидания бинда
     private Module waitingForBind = null;
 
     public ClickGUI() {
@@ -64,19 +63,18 @@ public class ClickGUI extends Screen {
         int col = 0;
 
         for (Module module : ModuleManager.modules) {
-            if (currentTab == 0 && !module.name.equals("KillAura")) continue;
+            // ФИЛЬТР ПО ВКЛАДКАМ (Добавлен ClickPearl)
+            if (currentTab == 0 && !module.name.equals("KillAura") && !module.name.equals("ClickPearl")) continue;
             if (currentTab == 1 && !module.name.equals("FullBright") && !module.name.equals("AutoSprint")) continue;
             if (currentTab == 2 && !module.name.equals("ChestESP")) continue;
             if (currentTab == 3) continue;
 
-            // Если модуль ждет бинда - красим его в серый
             if (waitingForBind == module) {
                 RenderUtils.drawRoundedRect(context, modX, modY, 210, 30, 8, 0xFF555555);
                 context.drawTextWithShadow(textRenderer, "§ePress key...", modX + 10, modY + 10, 0xFFFFFFFF);
             } else {
                 RenderUtils.drawRoundedRect(context, modX, modY, 210, 30, 8, 0xFF2A2A2A);
                 
-                // Добавляем отображение привязанной клавиши
                 String bindText = module.key != -1 ? " §7[" + GLFW.glfwGetKeyName(module.key, 0) + "]" : "";
                 context.drawTextWithShadow(textRenderer, module.name + bindText, modX + 10, modY + 10, 0xFFFFFFFF);
                 
@@ -116,7 +114,8 @@ public class ClickGUI extends Screen {
         int col = 0;
 
         for (Module module : ModuleManager.modules) {
-            if (currentTab == 0 && !module.name.equals("KillAura")) continue;
+            // ТОТ ЖЕ ФИЛЬТР ДЛЯ КЛИКОВ
+            if (currentTab == 0 && !module.name.equals("KillAura") && !module.name.equals("ClickPearl")) continue;
             if (currentTab == 1 && !module.name.equals("FullBright") && !module.name.equals("AutoSprint")) continue;
             if (currentTab == 2 && !module.name.equals("ChestESP")) continue;
             if (currentTab == 3) continue;
@@ -139,7 +138,6 @@ public class ClickGUI extends Screen {
         return super.mouseClicked(click, doubled);
     }
 
-    // Ловим нажатие клавиши для бинда
     @Override
     public boolean keyPressed(KeyInput input) {
         if (waitingForBind != null) {
