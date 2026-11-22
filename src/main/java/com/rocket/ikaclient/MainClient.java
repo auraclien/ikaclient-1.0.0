@@ -3,6 +3,7 @@ package com.rocket.ikaclient;
 import com.rocket.ikaclient.modules.Module;
 import com.rocket.ikaclient.modules.ModuleManager;
 import com.rocket.ikaclient.ui.ClickGUI;
+import com.rocket.ikaclient.utils.ChatListener; // <--- ДОБАВИЛИ ИМПОРТ
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -22,6 +23,7 @@ public class MainClient implements ClientModInitializer {
     public void onInitializeClient() {
         ModuleManager.init();
         HudRenderer.register();
+        ChatListener.register(); // <--- ДОБАВИЛИ ЭТУ СТРОЧКУ
 
         menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.ikaclient.menu", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT_SHIFT,
