@@ -4,6 +4,7 @@ import com.rocket.ikaclient.modules.ChestESP;
 import com.rocket.ikaclient.modules.KillAura;
 import com.rocket.ikaclient.modules.Module;
 import com.rocket.ikaclient.modules.ModuleManager;
+import com.rocket.ikaclient.utils.RenderUtils;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
@@ -12,8 +13,8 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 
 public class HudRenderer {
-    private static final int BG_COLOR = 0x90000000;
-    private static final int ACCENT_COLOR = 0xFF00AAFF;
+    private static final int BG_COLOR = 0xD9000000; // Темный, почти непрозрачный
+    private static final int ACCENT_COLOR = 0xFF00AAFF; // Наш синий цвет
 
     public static void register() {
         HudElementRegistry.addLast(Identifier.of(MainClient.MOD_ID, "hud"), HudRenderer::render);
@@ -23,54 +24,94 @@ public class HudRenderer {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null || mc.world == null) return;
 
-        int x = 6; int y = 6; int width = 140;
+        // --- 1. СТИЛЬНАЯ ПАНЕЛЬ СВЕРХУ ---
+        int x = 10; 
+        int y = 10; 
+        int width = 280; // Длинная панель
+        int height = 22; // Тонкая
+        int radius = 11; // Гладкие края (половина высоты)
+
+        // Рисуем фон с закругленными краями
+        RenderUtils.drawRoundedRect(context, x, y, width, height, radius, BG_COLOR);
+        
+        // Синяя полоска слева (акцент)
+        RenderUtils.drawRoundedRect(context, x, y, 4, height, 2, ACCENT_COLOR);
+
+        // Текст: IKA CLIENT
+        context.drawText(mc.textRenderer, "§lIKA", x + 12, y + 7, ACCENT_COLOR, true);
+        context.drawText(mc.textRenderer, "§7CLIENT", x + 38, y + 7, 0xFFAAAAAA, true);
+
+        // Текст: FPS
+        String fpsText = "§7FPS: §f" + mc.getCurrentFps();
+        context.drawText(mc.textRenderer, fpsText, x + 105, y + 7, 0xFFFFFFFF, true);
+
+        // Текст: Координаты
+        int px = (int) mc.player.getX();
+        int py = (int) mc.player.getY();
+        int pz = (int) mc.player.getZ();
+        String coordsText = String.format("§7XYZ: §f%d, %d, %d", px, py, pz);
+        context.drawText(mc.textRenderer, coordsText, x + 155, y + 7, 0xFFFFFFFF, true);
+
+        // --- 2. СПИСОК МОДУЛЕЙ (ЧУТЬ НИЖЕ) ---
         int activeModules = 0;
-        for (Module m : ModuleManager.modules) if (m.enabled) activeModules++;
-        int height = Math.max(20 + (activeModules * 12), 35);
+        for (Module m : ModuleManager.modules) {
+            if (m.enabled) activeModules++;
+        }
 
-        context.fill(x, y, x + width, y + height, BG_COLOR);
-        context.fill(x, y, x + 3, y + height, ACCENT_COLOR);
-        context.drawText(mc.textRenderer, "§lIKA", x + 8, y + 5, ACCENT_COLOR, true);
-        context.drawText(mc.textRenderer, "§7CLIENT", x + 32, y + 5, 0xFFAAAAAA, true);
-        context.fill(x + 5, y + 16, x + width - 5, y + 17, 0x40FFFFFF);
+        if (activeModules > 0) {
+            int modY = y + height + 5;
+            int modWidth = 100;
+            int modHeight = 15;
 
-        int modY = y + 20;
-        for (Module module : ModuleManager.modules) {
-            if (module.enabled) {
-                context.fill(x + 5, modY, x + 7, modY + 8, 0xFFFFFFFF);
-                context.drawText(mc.textRenderer, module.name, x + 12, modY, 0xFFFFFFFF, true);
-                modY += 12;
+            // Фон для модулей
+            RenderUtils.drawRoundedRect(context, x, modY, modWidth, (activeModules * modHeight) + 10, 6, BG_COLOR);
+
+            int currentY = modY + 5;
+            for (Module module : ModuleManager.modules) {
+                if (module.enabled) {
+                    // Точка слева от модуля
+                    RenderUtils.drawCircle(context, x + 8, currentY + 5, 2, ACCENT_COLOR);
+                    context.drawText(mc.textRenderer, module.name, x + 15, currentY, 0xFFFFFFFF, true);
+                    currentY += modHeight;
+                }
             }
         }
 
+        // --- 3. ИНДИКАТОР КРИТА ---
         KillAura aura = (KillAura) ModuleManager.getModule("KillAura");
         if (aura != null && aura.enabled) {
             boolean crit = aura.isCritReady();
-            context.drawText(mc.textRenderer, crit ? "CRIT" : "WAIT", x + width - 35, y + height - 12, crit ? 0xFF55FF55 : 0xFFFFAA00, true);
+            String critText = crit ? "CRIT" : "WAIT";
+            int color = crit ? 0xFF55FF55 : 0xFFFFAA00;
+            
+            // Рисуем плашку под крит в правом нижнем углу панели
+            RenderUtils.drawRoundedRect(context, x + width - 40, y + 5, 30, 12, 6, color);
+            context.drawText(mc.textRenderer, critText, x + width - 35, y + 7, 0xFF000000, true);
         }
 
+        // --- 4. CHEST ESP (Оставляем как есть, справа) ---
         ChestESP chestEsp = (ChestESP) ModuleManager.getModule("ChestESP");
         if (chestEsp != null && chestEsp.enabled) {
             int rightX = mc.getWindow().getScaledWidth() - 160;
-            int rightY = 6;
+            int rightY = 10;
             
             context.fill(rightX, rightY, rightX + 150, rightY + 18, BG_COLOR);
             context.fill(rightX, rightY, rightX + 150, rightY + 2, 0xFFFFFF00);
             context.drawText(mc.textRenderer, "§eChestESP", rightX + 5, rightY + 5, 0xFFFFFFFF, true);
 
             int count = 0;
-            double px = mc.player.getX(), py = mc.player.getY(), pz = mc.player.getZ();
+            double pxChest = mc.player.getX(), pyChest = mc.player.getY(), pzChest = mc.player.getZ();
 
             for (BlockPos pos : chestEsp.getHighlightedBlocks()) {
                 if (count >= 10) break;
-                double dist = Math.sqrt(Math.pow(pos.getX() + 0.5 - px, 2) + Math.pow(pos.getY() + 0.5 - py, 2) + Math.pow(pos.getZ() + 0.5 - pz, 2));
+                double dist = Math.sqrt(Math.pow(pos.getX() + 0.5 - pxChest, 2) + Math.pow(pos.getY() + 0.5 - pyChest, 2) + Math.pow(pos.getZ() + 0.5 - pzChest, 2));
                 String text = String.format("%.0fм [%d, %d, %d]", dist, pos.getX(), pos.getY(), pos.getZ());
                 rightY += 12;
                 context.fill(rightX, rightY, rightX + 150, rightY + 12, BG_COLOR);
                 context.drawText(mc.textRenderer, text, rightX + 5, rightY + 2, 0xFFFFFF00, true);
                 count++;
             }
-            context.fill(rightX - 1, 5, rightX + 151, 6, 0xFFFFFF00); 
+            context.fill(rightX - 1, 10, rightX + 151, 11, 0xFFFFFF00); 
             context.fill(rightX - 1, rightY + 14, rightX + 151, rightY + 15, 0xFFFFFF00); 
         }
     }
