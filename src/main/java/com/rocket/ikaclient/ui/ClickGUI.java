@@ -6,7 +6,9 @@ import com.rocket.ikaclient.utils.RenderUtils;
 import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.input.KeyInput;
 import net.minecraft.text.Text;
+import org.lwjgl.glfw.GLFW;
 
 public class ClickGUI extends Screen {
     private int currentTab = 0;
@@ -15,6 +17,9 @@ public class ClickGUI extends Screen {
     private final int windowWidth = 500;
     private final int windowHeight = 350;
     private int startX, startY;
+
+    // Добавляем переменную для ожидания бинда
+    private Module waitingForBind = null;
 
     public ClickGUI() {
         super(Text.literal("Ika Client"));
@@ -64,11 +69,19 @@ public class ClickGUI extends Screen {
             if (currentTab == 2 && !module.name.equals("ChestESP")) continue;
             if (currentTab == 3) continue;
 
-            RenderUtils.drawRoundedRect(context, modX, modY, 210, 30, 8, 0xFF2A2A2A);
-
-            context.drawTextWithShadow(textRenderer, module.name, modX + 10, modY + 10, 0xFFFFFFFF);
-
-            RenderUtils.drawSwitch(context, modX + 170, modY + 5, module.enabled);
+            // Если модуль ждет бинда - красим его в серый
+            if (waitingForBind == module) {
+                RenderUtils.drawRoundedRect(context, modX, modY, 210, 30, 8, 0xFF555555);
+                context.drawTextWithShadow(textRenderer, "§ePress key...", modX + 10, modY + 10, 0xFFFFFFFF);
+            } else {
+                RenderUtils.drawRoundedRect(context, modX, modY, 210, 30, 8, 0xFF2A2A2A);
+                
+                // Добавляем отображение привязанной клавиши
+                String bindText = module.key != -1 ? " §7[" + GLFW.glfwGetKeyName(module.key, 0) + "]" : "";
+                context.drawTextWithShadow(textRenderer, module.name + bindText, modX + 10, modY + 10, 0xFFFFFFFF);
+                
+                RenderUtils.drawSwitch(context, modX + 170, modY + 5, module.enabled);
+            }
 
             modY += 40;
             col++;
@@ -86,6 +99,7 @@ public class ClickGUI extends Screen {
     public boolean mouseClicked(Click click, boolean doubled) {
         double mouseX = click.x();
         double mouseY = click.y();
+        int button = click.button();
 
         int tabX = startX + 20;
         for (int i = 0; i < tabs.length; i++) {
@@ -108,8 +122,13 @@ public class ClickGUI extends Screen {
             if (currentTab == 3) continue;
 
             if (mouseX >= modX && mouseX <= modX + 210 && mouseY >= modY && mouseY <= modY + 30) {
-                module.toggle();
-                return true;
+                if (button == 0) { // ЛКМ - вкл/выкл
+                    module.toggle();
+                    return true;
+                } else if (button == 2) { // СКМ - бинд
+                    waitingForBind = module;
+                    return true;
+                }
             }
 
             modY += 40;
@@ -118,6 +137,17 @@ public class ClickGUI extends Screen {
         }
 
         return super.mouseClicked(click, doubled);
+    }
+
+    // Ловим нажатие клавиши для бинда
+    @Override
+    public boolean keyPressed(KeyInput input) {
+        if (waitingForBind != null) {
+            waitingForBind.key = input.key();
+            waitingForBind = null;
+            return true;
+        }
+        return super.keyPressed(input);
     }
 
     @Override
