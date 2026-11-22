@@ -1,5 +1,6 @@
 package com.rocket.ikaclient.modules;
 
+import com.rocket.ikaclient.utils.FriendManager; // <--- ДОБАВИЛИ ИМПОРТ
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.MathHelper;
@@ -19,10 +20,7 @@ public class KillAura extends Module {
     private long lastAttack = 0L;
     private long nextDelay = 0L;
 
-    public KillAura() {
-        super("KillAura", GLFW.GLFW_KEY_R);
-    }
-
+    public KillAura() { super("KillAura", GLFW.GLFW_KEY_R); }
     public PlayerEntity getTarget() { return target; }
 
     public boolean isCritReady() {
@@ -35,14 +33,11 @@ public class KillAura extends Module {
     @Override
     public void onTick() {
         if (!enabled || mc.player == null || mc.world == null || mc.interactionManager == null) {
-            target = null;
-            return;
+            target = null; return;
         }
-        
         target = findTarget();
         if (target == null) { nextDelay = 0L; return; }
         
-        // Физически доворачиваем камеру (Aim)
         aimAtTarget(target);
         
         if (!isCritReady()) return;
@@ -56,13 +51,14 @@ public class KillAura extends Module {
 
         mc.interactionManager.attackEntity(mc.player, target);
         mc.player.swingHand(Hand.MAIN_HAND);
-        lastAttack = now;
-        nextDelay = 0L;
+        lastAttack = now; nextDelay = 0L;
     }
 
     private PlayerEntity findTarget() {
         List<PlayerEntity> candidates = mc.world.getPlayers().stream()
                 .filter(e -> e != mc.player && e.isAlive() && !e.isRemoved() && !e.isCreative() && !e.isSpectator())
+                // ВОТ НАША НОВАЯ ПРОВЕРКА НА ДРУГА
+                .filter(e -> !FriendManager.isFriend(e.getName().getString())) 
                 .filter(e -> mc.player.squaredDistanceTo(e) <= RANGE_SQUARED)
                 .filter(mc.player::canSee)
                 .map(e -> (PlayerEntity) e)
@@ -80,11 +76,10 @@ public class KillAura extends Module {
         float targetYaw = (float) (Math.toDegrees(Math.atan2(direction.z, direction.x)) - 90.0);
         float targetPitch = (float) (-Math.toDegrees(Math.atan2(direction.y, horizontal)));
 
-        float yawDifference = MathHelper.wrapDegrees(targetYaw - mc.player.getYaw());
-        float pitchDifference = MathHelper.wrapDegrees(targetPitch - mc.player.getPitch());
+        float yawDiff = MathHelper.wrapDegrees(targetYaw - mc.player.getYaw());
+        float pitchDiff = MathHelper.wrapDegrees(targetPitch - mc.player.getPitch());
 
-        // Резкий доворот (180 градусов за тик) — камера "прилипает" к цели
-        mc.player.setYaw(mc.player.getYaw() + MathHelper.clamp(yawDifference, -180.0f, 180.0f));
-        mc.player.setPitch(MathHelper.clamp(mc.player.getPitch() + MathHelper.clamp(pitchDifference, -180.0f, 180.0f), -90.0f, 90.0f));
+        mc.player.setYaw(mc.player.getYaw() + MathHelper.clamp(yawDiff, -180.0f, 180.0f));
+        mc.player.setPitch(MathHelper.clamp(mc.player.getPitch() + MathHelper.clamp(pitchDiff, -180.0f, 180.0f), -90.0f, 90.0f));
     }
 }
