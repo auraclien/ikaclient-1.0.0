@@ -107,8 +107,8 @@ public class KillAura extends Module {
     private void aimAtWithPrediction(ClientPlayerEntity player, PlayerEntity target) {
         Vec3d eyes = player.getEyePos();
         
-        // Берем текущую позицию и добавляем скорость (упреждение на 2 тика)
-        Vec3d targetPos = target.getPos();
+        // Берем текущую позицию через getX/getY/getZ и добавляем скорость (упреждение на 2 тика)
+        Vec3d targetPos = new Vec3d(target.getX(), target.getY(), target.getZ());
         Vec3d targetVel = target.getVelocity();
         Vec3d predictedPos = targetPos.add(targetVel.multiply(2.0)); 
         
