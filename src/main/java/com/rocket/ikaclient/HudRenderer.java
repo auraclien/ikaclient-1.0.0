@@ -13,8 +13,8 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 
 public class HudRenderer {
-    private static final int BG_COLOR = 0xD9000000; // Темный, почти непрозрачный
-    private static final int ACCENT_COLOR = 0xFF00AAFF; // Наш синий цвет
+    private static final int BG_COLOR = 0xD9000000;
+    private static final int ACCENT_COLOR = 0xFF00AAFF;
 
     public static void register() {
         HudElementRegistry.addLast(Identifier.of(MainClient.MOD_ID, "hud"), HudRenderer::render);
@@ -24,35 +24,28 @@ public class HudRenderer {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null || mc.world == null) return;
 
-        // --- 1. СТИЛЬНАЯ ПАНЕЛЬ СВЕРХУ ---
         int x = 10; 
         int y = 10; 
-        int width = 280; // Длинная панель
-        int height = 22; // Тонкая
-        int radius = 11; // Гладкие края (половина высоты)
+        int width = 280; 
+        int height = 22; 
+        int radius = 11; 
 
-        // Рисуем фон с закругленными краями
         RenderUtils.drawRoundedRect(context, x, y, width, height, radius, BG_COLOR);
-        
-        // Синяя полоска слева (акцент)
         RenderUtils.drawRoundedRect(context, x, y, 4, height, 2, ACCENT_COLOR);
 
-        // Текст: IKA CLIENT
         context.drawText(mc.textRenderer, "§lIKA", x + 12, y + 7, ACCENT_COLOR, true);
         context.drawText(mc.textRenderer, "§7CLIENT", x + 38, y + 7, 0xFFAAAAAA, true);
 
-        // Текст: FPS
         String fpsText = "§7FPS: §f" + mc.getCurrentFps();
         context.drawText(mc.textRenderer, fpsText, x + 105, y + 7, 0xFFFFFFFF, true);
 
-        // Текст: Координаты
         int px = (int) mc.player.getX();
         int py = (int) mc.player.getY();
         int pz = (int) mc.player.getZ();
         String coordsText = String.format("§7XYZ: §f%d, %d, %d", px, py, pz);
         context.drawText(mc.textRenderer, coordsText, x + 155, y + 7, 0xFFFFFFFF, true);
 
-        // --- 2. СПИСОК МОДУЛЕЙ (ЧУТЬ НИЖЕ) ---
+        // Список модулей
         int activeModules = 0;
         for (Module m : ModuleManager.modules) {
             if (m.enabled) activeModules++;
@@ -63,13 +56,11 @@ public class HudRenderer {
             int modWidth = 100;
             int modHeight = 15;
 
-            // Фон для модулей
             RenderUtils.drawRoundedRect(context, x, modY, modWidth, (activeModules * modHeight) + 10, 6, BG_COLOR);
 
             int currentY = modY + 5;
             for (Module module : ModuleManager.modules) {
                 if (module.enabled) {
-                    // Точка слева от модуля
                     RenderUtils.drawCircle(context, x + 8, currentY + 5, 2, ACCENT_COLOR);
                     context.drawText(mc.textRenderer, module.name, x + 15, currentY, 0xFFFFFFFF, true);
                     currentY += modHeight;
@@ -77,19 +68,15 @@ public class HudRenderer {
             }
         }
 
-        // --- 3. ИНДИКАТОР КРИТА ---
+        // Индикатор цели (вместо CRIT)
         KillAura aura = (KillAura) ModuleManager.getModule("KillAura");
         if (aura != null && aura.enabled) {
-            boolean crit = aura.isCritReady();
-            String critText = crit ? "CRIT" : "WAIT";
-            int color = crit ? 0xFF55FF55 : 0xFFFFAA00;
-            
-            // Рисуем плашку под крит в правом нижнем углу панели
-            RenderUtils.drawRoundedRect(context, x + width - 40, y + 5, 30, 12, 6, color);
-            context.drawText(mc.textRenderer, critText, x + width - 35, y + 7, 0xFF000000, true);
+            String targetText = aura.getTarget() != null ? "§cTARGET" : "§7IDLE";
+            RenderUtils.drawRoundedRect(context, x + width - 45, y + 5, 35, 12, 6, 0xFF333333);
+            context.drawText(mc.textRenderer, targetText, x + width - 40, y + 7, 0xFFFFFFFF, true);
         }
 
-        // --- 4. CHEST ESP (Оставляем как есть, справа) ---
+        // Chest ESP
         ChestESP chestEsp = (ChestESP) ModuleManager.getModule("ChestESP");
         if (chestEsp != null && chestEsp.enabled) {
             int rightX = mc.getWindow().getScaledWidth() - 160;
