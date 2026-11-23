@@ -1,86 +1,156 @@
 package com.rocket.ikaclient.modules;
 
 import com.rocket.ikaclient.utils.FriendManager;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import org.lwjgl.glfw.GLFW;
+
 import java.util.Comparator;
-import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.Optional;
+import java.util.Random;
 
 public class KillAura extends Module {
-    private static final double RANGE = 2.95;
-    private static final double RANGE_SQUARED = RANGE * RANGE;
-    private static final int CPS_MIN = 8;
-    private static final int CPS_MAX = 12;
 
-    private PlayerEntity target = null;
-    private long lastAttack = 0L;
-    private long nextDelay = 0L;
+    private static final double RANGE = 3.0;
+    private static final float MIN_COOLDOWN = 0.9f;
+    private static final int MIN_CPS = 8;
+    private static final int MAX_CPS = 12;
 
-    public KillAura() { super("KillAura", GLFW.GLFW_KEY_R); }
-    public PlayerEntity getTarget() { return target; }
+    private static final float SMOOTHING = 0.35f;     
+    private static final float MAX_STEP = 25f;        
+    private static final float NOISE_AMPLITUDE = 1.5f; 
+    private static final float MAX_AIM_ERROR = 12f;   
+
+    private final Random random = new Random();
+    private final PerlinNoise1D yawNoise = new PerlinNoise1D(random.nextLong());
+    private final PerlinNoise1D pitchNoise = new PerlinNoise1D(random.nextLong());
+
+    private double noiseTime = random.nextDouble() * 1000.0;
+    private long nextAttackTime = 0L;
+
+    public KillAura() {
+        super("KillAura", GLFW.GLFW_KEY_R);
+    }
 
     public boolean isCritReady() {
         if (mc.player == null) return false;
-        return !mc.player.isOnGround() && !mc.player.isTouchingWater() && !mc.player.isClimbing()
-                && !mc.player.hasVehicle() && !mc.player.isGliding() && mc.player.fallDistance > 0.0f
-                && mc.player.getAttackCooldownProgress(0.0f) > 0.8f;
+        return mc.player.fallDistance > 0
+                && !mc.player.isOnGround()
+                && !mc.player.isClimbing()
+                && !mc.player.isTouchingWater()
+                && !mc.player.hasVehicle();
     }
 
     @Override
     public void onTick() {
-        if (!enabled || mc.player == null || mc.world == null || mc.interactionManager == null) {
-            target = null; return;
-        }
-        target = findTarget();
-        if (target == null) { nextDelay = 0L; return; }
-        
-        aimAtTarget(target);
-        
+        if (!enabled) return;
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+        ClientPlayerEntity player = mc.player;
+        if (player == null || mc.world == null || mc.interactionManager == null) return;
+        if (mc.currentScreen != null || !player.isAlive()) return;
+
+        // Ищем ИГРОКОВ, а не мобов (исключаем друзей)
+        Optional<PlayerEntity> found = mc.world
+                .getEntitiesByClass(PlayerEntity.class,
+                        player.getBoundingBox().expand(RANGE),
+                        e -> e != player && e.isAlive() && !e.isInvulnerable() && !e.isCreative() && !e.isSpectator())
+                .stream()
+                .filter(e -> !FriendManager.isFriend(e.getName().getString()))
+                .filter(e -> player.distanceTo(e) <= RANGE)
+                .min(Comparator.comparingDouble(player::distanceTo));
+
+        if (found.isEmpty()) return;
+        PlayerEntity target = found.get();
+
+        float aimError = aimAt(player, target);
+
         if (!isCritReady()) return;
+        if (player.getAttackCooldownProgress(0.5f) <= MIN_COOLDOWN) return;
+        if (aimError > MAX_AIM_ERROR) return;
 
         long now = System.currentTimeMillis();
-        if (nextDelay == 0L) {
-            int cps = ThreadLocalRandom.current().nextInt(CPS_MIN, CPS_MAX + 1);
-            nextDelay = 1000L / cps + ThreadLocalRandom.current().nextLong(-8L, 9L);
+        if (now < nextAttackTime) return;
+
+        // Сброс спринта через пакет (чтобы крит засчитался на сервере)
+        if (player.isSprinting()) {
+            player.setSprinting(false);
+            player.networkHandler.sendPacket(new ClientCommandC2SPacket(player, ClientCommandC2SPacket.Mode.STOP_SPRINTING));
         }
-        if (now - lastAttack < nextDelay) return;
 
-        mc.interactionManager.attackEntity(mc.player, target);
-        mc.player.swingHand(Hand.MAIN_HAND);
-        lastAttack = now; 
-        nextDelay = 0L;
+        mc.interactionManager.attackEntity(player, target);
+        player.swingHand(Hand.MAIN_HAND);
+
+        int cps = MIN_CPS + random.nextInt(MAX_CPS - MIN_CPS + 1);
+        nextAttackTime = now + (long) (1000.0 / cps);
     }
 
-    private PlayerEntity findTarget() {
-        List<PlayerEntity> candidates = mc.world.getPlayers().stream()
-                .filter(e -> e != mc.player && e.isAlive() && !e.isRemoved() && !e.isCreative() && !e.isSpectator())
-                .filter(e -> !FriendManager.isFriend(e.getName().getString())) 
-                .filter(e -> mc.player.squaredDistanceTo(e) <= RANGE_SQUARED)
-                .filter(mc.player::canSee) 
-                .map(e -> (PlayerEntity) e)
-                .sorted(Comparator.comparingDouble(mc.player::squaredDistanceTo))
-                .toList();
-        return candidates.isEmpty() ? null : candidates.get(0);
+    private float aimAt(ClientPlayerEntity player, PlayerEntity target) {
+        Vec3d eyes = player.getEyePos();
+        Vec3d aimPoint = target.getBoundingBox().getCenter();
+
+        double dx = aimPoint.x - eyes.x;
+        double dy = aimPoint.y - eyes.y;
+        double dz = aimPoint.z - eyes.z;
+        double horizontal = Math.sqrt(dx * dx + dz * dz);
+
+        float targetYaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+        float targetPitch = (float) -Math.toDegrees(Math.atan2(dy, horizontal));
+
+        noiseTime += 0.07;
+        targetYaw += (float) yawNoise.noise(noiseTime) * NOISE_AMPLITUDE;
+        targetPitch += (float) pitchNoise.noise(noiseTime + 500.0) * NOISE_AMPLITUDE;
+
+        float yawDiff = MathHelper.wrapDegrees(targetYaw - player.getYaw());
+        float pitchDiff = targetPitch - player.getPitch();
+
+        float yawStep = MathHelper.clamp(yawDiff * SMOOTHING, -MAX_STEP, MAX_STEP);
+        float pitchStep = MathHelper.clamp(pitchDiff * SMOOTHING, -MAX_STEP, MAX_STEP);
+
+        player.setYaw(player.getYaw() + yawStep);
+        player.setPitch(MathHelper.clamp(player.getPitch() + pitchStep, -90f, 90f));
+
+        return (float) Math.hypot(yawDiff - yawStep, pitchDiff - pitchStep);
     }
 
-    private void aimAtTarget(PlayerEntity entity) {
-        Vec3d eyes = mc.player.getEyePos();
-        Vec3d targetEyes = entity.getEyePos();
-        Vec3d direction = targetEyes.subtract(eyes);
+    @Override
+    public void onDisable() {
+        nextAttackTime = 0L;
+    }
 
-        double horizontal = Math.sqrt(direction.x * direction.x + direction.z * direction.z);
-        float targetYaw = (float) (Math.toDegrees(Math.atan2(direction.z, direction.x)) - 90.0);
-        float targetPitch = (float) (-Math.toDegrees(Math.atan2(direction.y, horizontal)));
+    private static final class PerlinNoise1D {
+        private final int[] perm = new int[512];
+        private final double[] grad = new double[256];
 
-        float yawDiff = MathHelper.wrapDegrees(targetYaw - mc.player.getYaw());
-        float pitchDiff = MathHelper.wrapDegrees(targetPitch - mc.player.getPitch());
+        PerlinNoise1D(long seed) {
+            Random r = new Random(seed);
+            int[] p = new int[256];
+            for (int i = 0; i < 256; i++) {
+                p[i] = i;
+                grad[i] = r.nextDouble() * 2.0 - 1.0;
+            }
+            for (int i = 255; i > 0; i--) {
+                int j = r.nextInt(i + 1);
+                int t = p[i];
+                p[i] = p[j];
+                p[j] = t;
+            }
+            for (int i = 0; i < 512; i++) perm[i] = p[i & 255];
+        }
 
-        float smoothFactor = 0.45f; 
-        mc.player.setYaw(mc.player.getYaw() + yawDiff * smoothFactor);
-        mc.player.setPitch(MathHelper.clamp(mc.player.getPitch() + pitchDiff * smoothFactor, -90.0f, 90.0f));
+        double noise(double x) {
+            int xi = (int) Math.floor(x) & 255;
+            double xf = x - Math.floor(x);
+            double u = xf * xf * xf * (xf * (xf * 6 - 15) + 10); 
+
+            double g0 = grad[perm[xi]] * xf;
+            double g1 = grad[perm[xi + 1]] * (xf - 1.0);
+            return g0 + u * (g1 - g0);
+        }
     }
 }
