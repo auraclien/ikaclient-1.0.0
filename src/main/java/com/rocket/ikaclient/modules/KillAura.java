@@ -21,10 +21,9 @@ public class KillAura extends Module {
     private static final int MIN_CPS = 8;
     private static final int MAX_CPS = 12;
 
-    private static final float SMOOTHING = 0.35f;     
-    private static final float MAX_STEP = 25f;        
-    private static final float NOISE_AMPLITUDE = 1.5f; 
-    private static final float MAX_AIM_ERROR = 12f;   
+    private static final float SMOOTHING = 0.45f;     
+    private static final float MAX_STEP = 35f;        
+    private static final float NOISE_AMPLITUDE = 0.8f; 
 
     private final Random random = new Random();
     private final PerlinNoise1D yawNoise = new PerlinNoise1D(random.nextLong());
@@ -55,7 +54,6 @@ public class KillAura extends Module {
         if (player == null || mc.world == null || mc.interactionManager == null) return;
         if (mc.currentScreen != null || !player.isAlive()) return;
 
-        // Ищем ИГРОКОВ, а не мобов (исключаем друзей)
         Optional<PlayerEntity> found = mc.world
                 .getEntitiesByClass(PlayerEntity.class,
                         player.getBoundingBox().expand(RANGE),
@@ -68,17 +66,27 @@ public class KillAura extends Module {
         if (found.isEmpty()) return;
         PlayerEntity target = found.get();
 
-        float aimError = aimAt(player, target);
+        // 1. Упреждение (Prediction) - наводимся туда, куда цель бежит
+        aimAtWithPrediction(player, target);
 
+        // 2. Если мы на земле, но хотим ударить - прыгаем
+        if (player.isOnGround() && player.getAttackCooldownProgress(0.5f) > MIN_COOLDOWN) {
+            if (player.isSprinting()) {
+                player.jump(); // Прыжок для крита на ходу
+            }
+            return;
+        }
+
+        // 3. Если мы в воздухе (падаем) - бьем
         if (!isCritReady()) return;
         if (player.getAttackCooldownProgress(0.5f) <= MIN_COOLDOWN) return;
-        if (aimError > MAX_AIM_ERROR) return;
 
         long now = System.currentTimeMillis();
         if (now < nextAttackTime) return;
 
-        // Сброс спринта через пакет (чтобы крит засчитался на сервере)
-        if (player.isSprinting()) {
+        // 4. Сброс спринта только на 1 тик (чтобы крит засчитался, но мы не остановились)
+        boolean wasSprinting = player.isSprinting();
+        if (wasSprinting) {
             player.setSprinting(false);
             player.networkHandler.sendPacket(new ClientCommandC2SPacket(player, ClientCommandC2SPacket.Mode.STOP_SPRINTING));
         }
@@ -86,13 +94,26 @@ public class KillAura extends Module {
         mc.interactionManager.attackEntity(player, target);
         player.swingHand(Hand.MAIN_HAND);
 
+        // Возвращаем спринт обратно (если он был)
+        if (wasSprinting) {
+            player.setSprinting(true);
+            player.networkHandler.sendPacket(new ClientCommandC2SPacket(player, ClientCommandC2SPacket.Mode.START_SPRINTING));
+        }
+
         int cps = MIN_CPS + random.nextInt(MAX_CPS - MIN_CPS + 1);
         nextAttackTime = now + (long) (1000.0 / cps);
     }
 
-    private float aimAt(ClientPlayerEntity player, PlayerEntity target) {
+    private void aimAtWithPrediction(ClientPlayerEntity player, PlayerEntity target) {
         Vec3d eyes = player.getEyePos();
-        Vec3d aimPoint = target.getBoundingBox().getCenter();
+        
+        // Берем текущую позицию и добавляем скорость (упреждение на 2 тика)
+        Vec3d targetPos = target.getPos();
+        Vec3d targetVel = target.getVelocity();
+        Vec3d predictedPos = targetPos.add(targetVel.multiply(2.0)); 
+        
+        // Наводимся на центр хитбокса + упреждение
+        Vec3d aimPoint = new Vec3d(predictedPos.x, targetPos.y + target.getHeight() / 2.0, predictedPos.z);
 
         double dx = aimPoint.x - eyes.x;
         double dy = aimPoint.y - eyes.y;
@@ -102,6 +123,7 @@ public class KillAura extends Module {
         float targetYaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
         float targetPitch = (float) -Math.toDegrees(Math.atan2(dy, horizontal));
 
+        // Шум (делает наведение человеческим)
         noiseTime += 0.07;
         targetYaw += (float) yawNoise.noise(noiseTime) * NOISE_AMPLITUDE;
         targetPitch += (float) pitchNoise.noise(noiseTime + 500.0) * NOISE_AMPLITUDE;
@@ -114,8 +136,6 @@ public class KillAura extends Module {
 
         player.setYaw(player.getYaw() + yawStep);
         player.setPitch(MathHelper.clamp(player.getPitch() + pitchStep, -90f, 90f));
-
-        return (float) Math.hypot(yawDiff - yawStep, pitchDiff - pitchStep);
     }
 
     @Override
