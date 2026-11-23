@@ -1,7 +1,6 @@
 package com.rocket.ikaclient;
 
 import com.rocket.ikaclient.modules.ChestESP;
-import com.rocket.ikaclient.modules.KillAura;
 import com.rocket.ikaclient.modules.Module;
 import com.rocket.ikaclient.modules.ModuleManager;
 import com.rocket.ikaclient.utils.RenderUtils;
@@ -66,14 +65,6 @@ public class HudRenderer {
                     currentY += modHeight;
                 }
             }
-        }
-
-        // Индикатор цели (вместо CRIT)
-        KillAura aura = (KillAura) ModuleManager.getModule("KillAura");
-        if (aura != null && aura.enabled) {
-            String targetText = aura.getTarget() != null ? "§cTARGET" : "§7IDLE";
-            RenderUtils.drawRoundedRect(context, x + width - 45, y + 5, 35, 12, 6, 0xFF333333);
-            context.drawText(mc.textRenderer, targetText, x + width - 40, y + 7, 0xFFFFFFFF, true);
         }
 
         // Chest ESP
