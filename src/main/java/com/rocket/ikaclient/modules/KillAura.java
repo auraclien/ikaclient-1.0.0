@@ -66,37 +66,26 @@ public class KillAura extends Module {
         if (found.isEmpty()) return;
         PlayerEntity target = found.get();
 
-        // 1. Упреждение (Prediction) - наводимся туда, куда цель бежит
-        aimAtWithPrediction(player, target);
+        // Наводимся ЧЕТКО в центр хитбокса (без упреждения)
+        aimAt(player, target);
 
-        // 2. Если мы на земле, но хотим ударить - прыгаем
-        if (player.isOnGround() && player.getAttackCooldownProgress(0.5f) > MIN_COOLDOWN) {
-            if (player.isSprinting()) {
-                player.jump(); // Прыжок для крита на ходу
-            }
-            return;
-        }
-
-        // 3. Если мы в воздухе (падаем) - бьем
         if (!isCritReady()) return;
         if (player.getAttackCooldownProgress(0.5f) <= MIN_COOLDOWN) return;
 
         long now = System.currentTimeMillis();
         if (now < nextAttackTime) return;
 
-        // 4. Сброс спринта только на 1 тик (чтобы крит засчитался, но мы не остановились)
-        boolean wasSprinting = player.isSprinting();
-        if (wasSprinting) {
+        // Сброс спринта перед ударом (чтобы крит прошел)
+        if (player.isSprinting()) {
             player.setSprinting(false);
             player.networkHandler.sendPacket(new ClientCommandC2SPacket(player, ClientCommandC2SPacket.Mode.STOP_SPRINTING));
         }
 
         mc.interactionManager.attackEntity(player, target);
         player.swingHand(Hand.MAIN_HAND);
-
-        // Возвращаем спринт обратно (если он был)
-        if (wasSprinting) {
-            player.setSprinting(true);
+        
+        // И сразу включаем спринт обратно, чтобы тебя не стопало
+        if (player.isSprinting()) {
             player.networkHandler.sendPacket(new ClientCommandC2SPacket(player, ClientCommandC2SPacket.Mode.START_SPRINTING));
         }
 
@@ -104,26 +93,21 @@ public class KillAura extends Module {
         nextAttackTime = now + (long) (1000.0 / cps);
     }
 
-    private void aimAtWithPrediction(ClientPlayerEntity player, PlayerEntity target) {
+    private void aimAt(ClientPlayerEntity player, PlayerEntity target) {
         Vec3d eyes = player.getEyePos();
         
-        // Берем текущую позицию через getX/getY/getZ и добавляем скорость (упреждение на 2 тика)
-        Vec3d targetPos = new Vec3d(target.getX(), target.getY(), target.getZ());
-        Vec3d targetVel = target.getVelocity();
-        Vec3d predictedPos = targetPos.add(targetVel.multiply(2.0)); 
-        
-        // Наводимся на центр хитбокса + упреждение
-        Vec3d aimPoint = new Vec3d(predictedPos.x, targetPos.y + target.getHeight() / 2.0, predictedPos.z);
+        // Берем центр хитбокса цели
+        Vec3d targetCenter = target.getBoundingBox().getCenter();
 
-        double dx = aimPoint.x - eyes.x;
-        double dy = aimPoint.y - eyes.y;
-        double dz = aimPoint.z - eyes.z;
+        double dx = targetCenter.x - eyes.x;
+        double dy = targetCenter.y - eyes.y;
+        double dz = targetCenter.z - eyes.z;
         double horizontal = Math.sqrt(dx * dx + dz * dz);
 
         float targetYaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
         float targetPitch = (float) -Math.toDegrees(Math.atan2(dy, horizontal));
 
-        // Шум (делает наведение человеческим)
+        // Легкий шум (чтобы античит не палил идеальные углы)
         noiseTime += 0.07;
         targetYaw += (float) yawNoise.noise(noiseTime) * NOISE_AMPLITUDE;
         targetPitch += (float) pitchNoise.noise(noiseTime + 500.0) * NOISE_AMPLITUDE;
